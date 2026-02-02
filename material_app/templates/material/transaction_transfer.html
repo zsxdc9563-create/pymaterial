@@ -1,0 +1,303 @@
+{% extends 'base.html' %}
+
+{% block title %}物品調撥{% endblock %}
+{% block page_title %}物品調撥{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 顯示訊息 -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- 調撥表單 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-box-arrow-right"></i> 物品調撥作業</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" id="transferForm">
+                {% csrf_token %}
+
+                <div class="row mb-3">
+                    <!-- 來源容器 -->
+                    <div class="col-md-6">
+                        <label for="from_box" class="form-label">來源容器 *</label>
+                        <select class="form-select" id="from_box" name="from_box" required>
+                            <option value="">-- 請選擇來源容器 --</option>
+                            {% for box in boxes %}
+                            <option value="{{ box.BoxID }}">
+                                {{ box.BoxID }} - {{ box.Description|default:"無描述" }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- 目標容器 -->
+                    <div class="col-md-6">
+                        <label for="to_box" class="form-label">目標容器 *</label>
+                        <select class="form-select" id="to_box" name="to_box" required>
+                            <option value="">-- 請選擇目標容器 --</option>
+                            {% for box in boxes %}
+                            <option value="{{ box.BoxID }}">
+                                {{ box.BoxID }} - {{ box.Description|default:"無描述" }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <!-- 選擇物品 -->
+                    <div class="col-md-6">
+                        <label for="item" class="form-label">選擇物品 *</label>
+                        <select class="form-select" id="item" name="item" required disabled>
+                            <option value="">-- 請先選擇來源容器 --</option>
+                        </select>
+                        <small class="text-muted" id="item_info"></small>
+                    </div>
+
+                    <!-- 調撥數量 -->
+                    <div class="col-md-6">
+                        <label for="quantity" class="form-label">調撥數量 *</label>
+                        <input type="number" class="form-control" id="quantity" name="quantity"
+                               min="1" required disabled>
+                        <small class="text-muted" id="stock_info"></small>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <!-- 操作人員 -->
+                    <div class="col-md-6">
+                        <label for="operator" class="form-label">操作人員 *</label>
+                        <input type="text" class="form-control" id="operator" name="operator"
+                               required placeholder="請輸入操作人員姓名">
+                    </div>
+
+                    <!-- 備註 -->
+                    <div class="col-md-6">
+                        <label for="remark" class="form-label">備註</label>
+                        <input type="text" class="form-control" id="remark" name="remark"
+                               placeholder="選填，例如：專案需求調撥">
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-box-arrow-right"></i> 執行調撥
+                    </button>
+                    <a href="{% url 'material:transaction_history' %}" class="btn btn-secondary">
+                        <i class="bi bi-clock-history"></i> 查看歷史
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 最近調撥記錄 -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-clock-history"></i> 最近調撥記錄</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>時間</th>
+                            <th>物品</th>
+                            <th>數量</th>
+                            <th>來源</th>
+                            <th>目標</th>
+                            <th>操作人</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent_transfers">
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">載入中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fromBoxSelect = document.getElementById('from_box');
+    const toBoxSelect = document.getElementById('to_box');
+    const itemSelect = document.getElementById('item');
+    const quantityInput = document.getElementById('quantity');
+    const itemInfo = document.getElementById('item_info');
+    const stockInfo = document.getElementById('stock_info');
+
+    // 當選擇來源容器時，載入該容器的物品
+    fromBoxSelect.addEventListener('change', function() {
+        const boxId = this.value;
+
+        if (!boxId) {
+            itemSelect.disabled = true;
+            itemSelect.innerHTML = '<option value="">-- 請先選擇來源容器 --</option>';
+            quantityInput.disabled = true;
+            itemInfo.textContent = '';
+            stockInfo.textContent = '';
+            return;
+        }
+
+        // 防止來源和目標相同
+        if (boxId === toBoxSelect.value) {
+            alert('來源容器和目標容器不能相同！');
+            this.value = '';
+            return;
+        }
+
+        // 顯示載入中
+        itemSelect.innerHTML = '<option value="">載入中...</option>';
+        itemSelect.disabled = true;
+
+        // 載入物品列表
+        const apiUrl = `/material/api/box/${boxId}/items/`;
+        console.log('正在載入:', apiUrl);
+
+        fetch(apiUrl)
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('收到的資料:', data);
+
+                if (data.error) {
+                    alert('載入物品失敗：' + data.error);
+                    itemSelect.innerHTML = '<option value="">-- 載入失敗 --</option>';
+                    return;
+                }
+
+                itemSelect.innerHTML = '<option value="">-- 請選擇物品 --</option>';
+
+                if (data.items.length === 0) {
+                    itemSelect.innerHTML = '<option value="">-- 此容器沒有物品 --</option>';
+                    itemSelect.disabled = true;
+                    alert(`容器 ${boxId} 內目前沒有物品`);
+                } else {
+                    data.items.forEach(item => {
+                        const option = document.createElement('option');
+                        option.value = item.item_id;
+                        option.textContent = `${item.item_name} (庫存: ${item.quantity})`;
+                        option.dataset.quantity = item.quantity;
+                        option.dataset.spec = item.spec || '';
+                        itemSelect.appendChild(option);
+                    });
+                    itemSelect.disabled = false;
+                    console.log(`成功載入 ${data.items.length} 個物品`);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('載入物品失敗：' + error.message);
+                itemSelect.innerHTML = '<option value="">-- 載入失敗 --</option>';
+                itemSelect.disabled = true;
+            });
+    });
+
+    // 當選擇目標容器時，檢查是否與來源相同
+    toBoxSelect.addEventListener('change', function() {
+        if (this.value && this.value === fromBoxSelect.value) {
+            alert('目標容器不能與來源容器相同！');
+            this.value = '';
+        }
+    });
+
+    // 當選擇物品時，顯示詳細資訊並啟用數量輸入
+    itemSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+
+        if (!this.value) {
+            quantityInput.disabled = true;
+            quantityInput.value = '';
+            itemInfo.textContent = '';
+            stockInfo.textContent = '';
+            return;
+        }
+
+        const maxQty = parseInt(selectedOption.dataset.quantity);
+        const spec = selectedOption.dataset.spec;
+
+        itemInfo.textContent = spec ? `規格: ${spec}` : '';
+        stockInfo.textContent = `可調撥數量: ${maxQty}`;
+
+        quantityInput.max = maxQty;
+        quantityInput.value = Math.min(1, maxQty);
+        quantityInput.disabled = false;
+    });
+
+    // 表單驗證與防重複提交
+    document.getElementById('transferForm').addEventListener('submit', function(e) {
+        const quantity = parseInt(quantityInput.value);
+        const maxQty = parseInt(quantityInput.max);
+        const submitBtn = this.querySelector('button[type="submit"]');
+
+        if (quantity > maxQty) {
+            e.preventDefault();
+            alert(`調撥數量不能超過庫存數量 ${maxQty}！`);
+            return false;
+        }
+
+        if (fromBoxSelect.value === toBoxSelect.value) {
+            e.preventDefault();
+            alert('來源容器和目標容器不能相同！');
+            return false;
+        }
+
+        // 防止重複提交
+        if (submitBtn.disabled) {
+            e.preventDefault();
+            return false;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 調撥中...';
+    });
+
+    // 載入最近的調撥記錄
+    loadRecentTransfers();
+});
+
+function loadRecentTransfers() {
+    fetch('/material/api/recent-transfers/')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('recent_transfers');
+
+            if (data.transfers && data.transfers.length > 0) {
+                tbody.innerHTML = data.transfers.map(t => `
+                    <tr>
+                        <td>${t.timestamp}</td>
+                        <td>${t.item_name}</td>
+                        <td>${t.quantity}</td>
+                        <td><span class="badge bg-warning">${t.from_box}</span></td>
+                        <td><span class="badge bg-success">${t.to_box}</span></td>
+                        <td>${t.operator}</td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">暫無調撥記錄</td></tr>';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('recent_transfers').innerHTML =
+                '<tr><td colspan="6" class="text-center text-danger">載入失敗</td></tr>';
+        });
+}
+</script>
+{% endblock %}

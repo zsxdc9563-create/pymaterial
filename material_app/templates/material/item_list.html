@@ -1,0 +1,351 @@
+{% extends 'base.html' %}
+
+{% block title %}物品列表{% endblock %}
+{% block page_title %}物品列表{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 操作按鈕 -->
+    <div class="mb-3">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addItemModal">
+            <i class="bi bi-plus-circle"></i> 新增物品
+        </button>
+    </div>
+
+    <!-- 顯示訊息 -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- 篩選區域 -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-funnel"></i> 篩選條件</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label for="filter_sn" class="form-label">物品序號</label>
+                    <input type="text" class="form-control" id="filter_sn" placeholder="輸入序號關鍵字">
+                </div>
+                <div class="col-md-3">
+                    <label for="filter_name" class="form-label">物品名稱</label>
+                    <input type="text" class="form-control" id="filter_name" placeholder="輸入名稱關鍵字">
+                </div>
+                <div class="col-md-3">
+                    <label for="filter_box" class="form-label">所在容器</label>
+                    <select class="form-select" id="filter_box">
+                        <option value="">-- 全部容器 --</option>
+                        {% for box in boxes %}
+                        <option value="{{ box.BoxID }}">{{ box.BoxID }} - {{ box.Description|default:"無描述" }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="filter_location" class="form-label">位置</label>
+                    <input type="text" class="form-control" id="filter_location" placeholder="輸入位置關鍵字">
+                </div>
+            </div>
+            <div class="row g-3 mt-2">
+                <div class="col-12">
+                    <button type="button" class="btn btn-primary" onclick="applyFilter()">
+                        <i class="bi bi-search"></i> 篩選
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="clearFilter()">
+                        <i class="bi bi-x-circle"></i> 清除
+                    </button>
+                    <span class="text-muted ms-3" id="filter_count"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 物品列表 -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover" id="itemTable">
+                    <thead>
+                        <tr>
+                            <th>序號</th>
+                            <th>物品名稱</th>
+                            <th>規格</th>
+                            <th>所在容器</th>
+                            <th>位置</th>
+                            <th>數量</th>
+                            <th>更新時間</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr class="item-row"
+                            data-sn="{{ item.SN }}"
+                            data-name="{{ item.ItemName }}"
+                            data-box="{{ item.BoxID.BoxID }}"
+                            data-location="{{ item.Location|default:'' }}">
+                            <td><strong>{{ item.SN }}</strong></td>
+                            <td>{{ item.ItemName }}</td>
+                            <td>{{ item.Spec|default:"-" }}</td>
+                            <td><span class="badge bg-primary">{{ item.BoxID.BoxID }}</span></td>
+                            <td>{{ item.Location|default:"-" }}</td>
+                            <td><strong>{{ item.Quantity }}</strong></td>
+                            <td>{{ item.UpdateTime|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-warning"
+                                        onclick="editItem('{{ item.SN }}', '{{ item.ItemName }}', '{{ item.Spec|default:"" }}', '{{ item.BoxID.BoxID }}', '{{ item.Location|default:"" }}', {{ item.Quantity }})">
+                                    <i class="bi bi-pencil"></i> 編輯
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger"
+                                        onclick="deleteItem('{{ item.SN }}', '{{ item.ItemName }}')">
+                                    <i class="bi bi-trash"></i> 刪除
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center">暫無物品資料</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增物品 Modal -->
+<div class="modal fade" id="addItemModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">新增物品</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{% url 'material:item_add' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="add_SN" class="form-label">物品序號 *</label>
+                            <input type="text" class="form-control" id="add_SN" name="SN" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="add_ItemName" class="form-label">物品名稱 *</label>
+                            <input type="text" class="form-control" id="add_ItemName" name="ItemName" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="add_Spec" class="form-label">規格</label>
+                        <textarea class="form-control" id="add_Spec" name="Spec" rows="2"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="add_BoxID" class="form-label">所在容器 *</label>
+                            <select class="form-select" id="add_BoxID" name="BoxID" required>
+                                <option value="">-- 請選擇容器 --</option>
+                                {% for box in boxes %}
+                                <option value="{{ box.BoxID }}">{{ box.BoxID }} - {{ box.Description|default:"無描述" }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="add_Location" class="form-label">位置</label>
+                            <input type="text" class="form-control" id="add_Location" name="Location">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="add_Quantity" class="form-label">數量 *</label>
+                            <input type="number" class="form-control" id="add_Quantity" name="Quantity" value="0" required min="0">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="add_Operator" class="form-label">操作人員</label>
+                            <input type="text" class="form-control" id="add_Operator" name="Operator">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">新增</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 編輯物品 Modal -->
+<div class="modal fade" id="editItemModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">編輯物品</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="editItemForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">物品序號</label>
+                            <input type="text" class="form-control" id="edit_SN" disabled>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_ItemName" class="form-label">物品名稱 *</label>
+                            <input type="text" class="form-control" id="edit_ItemName" name="ItemName" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_Spec" class="form-label">規格</label>
+                        <textarea class="form-control" id="edit_Spec" name="Spec" rows="2"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_BoxID" class="form-label">所在容器 *</label>
+                            <select class="form-select" id="edit_BoxID" name="BoxID" required>
+                                {% for box in boxes %}
+                                <option value="{{ box.BoxID }}">{{ box.BoxID }} - {{ box.Description|default:"無描述" }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_Location" class="form-label">位置</label>
+                            <input type="text" class="form-control" id="edit_Location" name="Location">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_Quantity" class="form-label">數量 *</label>
+                            <input type="number" class="form-control" id="edit_Quantity" name="Quantity" required min="0">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_Operator" class="form-label">操作人員</label>
+                            <input type="text" class="form-control" id="edit_Operator" name="Operator">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 刪除確認 Modal -->
+<div class="modal fade" id="deleteItemModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">確認刪除</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="deleteItemForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>確定要刪除物品 <strong id="delete_ItemInfo"></strong> 嗎？</p>
+                    <p class="text-danger">此操作無法撤銷！</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-danger">確認刪除</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// 篩選功能
+function applyFilter() {
+    const filterSN = document.getElementById('filter_sn').value.toLowerCase().trim();
+    const filterName = document.getElementById('filter_name').value.toLowerCase().trim();
+    const filterBox = document.getElementById('filter_box').value.toLowerCase().trim();
+    const filterLocation = document.getElementById('filter_location').value.toLowerCase().trim();
+
+    const rows = document.querySelectorAll('.item-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const sn = row.dataset.sn.toLowerCase();
+        const name = row.dataset.name.toLowerCase();
+        const box = row.dataset.box.toLowerCase();
+        const location = row.dataset.location.toLowerCase();
+
+        const snMatch = !filterSN || sn.includes(filterSN);
+        const nameMatch = !filterName || name.includes(filterName);
+        const boxMatch = !filterBox || box === filterBox;
+        const locationMatch = !filterLocation || location.includes(filterLocation);
+
+        if (snMatch && nameMatch && boxMatch && locationMatch) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    // 更新計數
+    document.getElementById('filter_count').textContent = `顯示 ${visibleCount} / ${rows.length} 筆`;
+}
+
+// 清除篩選
+function clearFilter() {
+    document.getElementById('filter_sn').value = '';
+    document.getElementById('filter_name').value = '';
+    document.getElementById('filter_box').value = '';
+    document.getElementById('filter_location').value = '';
+
+    const rows = document.querySelectorAll('.item-row');
+    rows.forEach(row => {
+        row.style.display = '';
+    });
+
+    document.getElementById('filter_count').textContent = '';
+}
+
+// 即時篩選（可選）
+document.addEventListener('DOMContentLoaded', function() {
+    // 為所有篩選欄位加入即時篩選
+    const filterInputs = ['filter_sn', 'filter_name', 'filter_box', 'filter_location'];
+    filterInputs.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('input', applyFilter);
+            if (element.tagName === 'SELECT') {
+                element.addEventListener('change', applyFilter);
+            }
+        }
+    });
+});
+
+// 編輯物品
+function editItem(sn, itemName, spec, boxId, location, quantity) {
+    document.getElementById('edit_SN').value = sn;
+    document.getElementById('edit_ItemName').value = itemName;
+    document.getElementById('edit_Spec').value = spec;
+    document.getElementById('edit_BoxID').value = boxId;
+    document.getElementById('edit_Location').value = location;
+    document.getElementById('edit_Quantity').value = quantity;
+    
+    // 設置表單 action
+    document.getElementById('editItemForm').action = `/material/items/${sn}/edit/`;
+    
+    // 顯示 modal
+    new bootstrap.Modal(document.getElementById('editItemModal')).show();
+}
+
+// 刪除物品
+function deleteItem(sn, itemName) {
+    document.getElementById('delete_ItemInfo').textContent = `${sn} - ${itemName}`;
+    document.getElementById('deleteItemForm').action = `/material/items/${sn}/delete/`;
+    new bootstrap.Modal(document.getElementById('deleteItemModal')).show();
+}
+</script>
+{% endblock %}

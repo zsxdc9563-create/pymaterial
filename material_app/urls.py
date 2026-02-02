@@ -1,0 +1,28 @@
+# material_app/urls.py
+from django.urls import path
+from . import views
+
+app_name = 'material'
+
+urlpatterns = [
+    # 容器 CRUD
+    path("boxes/", views.box_list, name="box_list"),
+    path("boxes/add/", views.box_add, name="box_add"),
+    path("boxes/<str:box_id>/edit/", views.box_edit, name="box_edit"),
+    path("boxes/<str:box_id>/delete/", views.box_delete, name="box_delete"),
+
+    # 物品 CRUD
+    path("items/", views.item_list, name="item_list"),
+    path("items/add/", views.item_add, name="item_add"),
+    path("items/<str:item_id>/edit/", views.item_edit, name="item_edit"),
+    path("items/<str:item_id>/delete/", views.item_delete, name="item_delete"),
+
+    # 交易
+    path("transaction/transfer/", views.transaction_transfer, name="transaction_transfer"),
+    path("transaction/history/", views.transaction_history, name="transaction_history"),
+
+    # API
+    path('api/box/<str:box_id>/items/', views.get_box_items, name='get_box_items'),
+    path('api/recent-transfers/', views.get_recent_transfers, name='get_recent_transfers'),  # 新增
+
+]

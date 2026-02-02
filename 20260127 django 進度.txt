@@ -1,0 +1,72 @@
+20260107:
+
+用原始的streamlit快速做一版物料系統
+
+
+目前做的
+資料庫層 (models.py)：已經定義好三張表 (MaterialOverview、ItemList、TransactionLog)，並且成功 makemigrations → migrate，資料表已經建立完成。
+
+邏輯層 (services + views)：你也拆分了 service，並在 views 裡呼叫，API 路由 (urls.py) 已經能對應到正確的函式。這部分已經算是「後端邏輯」完成。
+
+測試結果：你打 http://127.0.0.1:8000/material/boxes/ 就能拿到 JSON，代表後端 API 已經能正常運作。
+
+==========================================
+
+
+
+todo  (權限控管)
+
+✅ 剩下的工作
+現在主要就是 前端呈現：
+
+Django Template + Bootstrap
+
+建立 templates/material_app/*.html
+
+在 views 裡用 render() 回傳 HTML，而不是 JsonResponse
+
+例如 box_list.html 顯示容器列表、item_form.html 顯示新增物品表單
+
+前端互動
+
+如果只要簡單 UI → 用 Django Template + Bootstrap 就夠了
+
+如果要更動態 → 可以加上 JavaScript (AJAX) 呼叫 API
+
+選擇框架
+
+簡單：Django Template
+
+複雜：前後端分離 → React / Vue / Angular，前端呼叫 Django REST API
+
+🚀 建議下一步    ok
+先用 Django Template + Bootstrap 做一個 基本 UI，例如：
+
+/material/boxes/ → 顯示容器列表
+
+/material/items/add/ → 表單新增物品
+
+/material/transactions/transfer/ → 表單做調撥
+
+這樣你就能取代原本的 Streamlit，直接在瀏覽器裡操作。
+
+
+
+主要特色
+
+上方功能區：新增按鈕 + 搜尋框
+下方表格：清楚呈現所有容器資訊
+操作按鈕：👁查看、✏編輯、🗑刪除
+所有操作都用 Modal：不需要跳轉頁面
+AJAX 載入物品：點擊查看時動態載入物品清單
+
+
+
+
+
+
+
+========差異==========
+
+1️⃣ Django Template      瀏覽器 ←→ Django Views ←→ Templates (HTML) ←→ Services ←→ Database
+    2️⃣ **前後端分離(Django REST API + React/Vue)    瀏覽器 (React/Vue) ←→ Django REST API ←→ Services ←→ Database

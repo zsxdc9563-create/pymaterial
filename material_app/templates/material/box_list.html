@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>容器列表</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, "Microsoft JhengHei", sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-block;
+            transition: background-color 0.3s;
+        }
+
+        .btn-primary {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #45a049;
+        }
+
+        .btn-secondary {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #0b7dda;
+        }
+
+        .btn-edit {
+            background-color: #FF9800;
+            color: white;
+            padding: 5px 15px;
+            margin-right: 5px;
+        }
+
+        .btn-edit:hover {
+            background-color: #e68900;
+        }
+
+        .btn-delete {
+            background-color: #f44336;
+            color: white;
+            padding: 5px 15px;
+        }
+
+        .btn-delete:hover {
+            background-color: #da190b;
+        }
+
+        /* 表格樣式 */
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            font-weight: bold;
+        }
+
+        tbody tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-active {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .status-idle {
+            background-color: #FFC107;
+            color: #333;
+        }
+
+        .status-closed {
+            background-color: #9E9E9E;
+            color: white;
+        }
+
+        .locked-icon {
+            color: #f44336;
+            font-weight: bold;
+        }
+
+        /* 彈出式表單樣式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal.show {
+            display: block;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+        }
+
+        .close {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+            transition: color 0.3s;
+        }
+
+        .close:hover {
+            color: #ddd;
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-group label .required {
+            color: #f44336;
+        }
+
+        .form-group label .help-text {
+            font-weight: normal;
+            color: #888;
+            font-size: 12px;
+            display: block;
+            margin-top: 2px;
+        }
+
+        .form-group input[type="text"],
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+        }
+
+        .form-group input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+        }
+
+        .checkbox-group label {
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .modal-footer {
+            padding: 20px 30px;
+            background-color: #f5f5f5;
+            border-radius: 0 0 8px 8px;
+            text-align: right;
+        }
+
+        .modal-footer .btn {
+            margin-left: 10px;
+        }
+
+        .btn-cancel {
+            background-color: #9E9E9E;
+            color: white;
+        }
+
+        .btn-cancel:hover {
+            background-color: #757575;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>容器列表</h1>
+        
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="openAddModal()">+ 新增容器</button>
+            <div>
+                <a href="{% url 'material:transaction_transfer' %}" class="btn btn-secondary">調撥管理</a>
+                <a href="{% url 'material:transaction_history' %}" class="btn btn-secondary">交易記錄</a>
+                <a href="{% url 'material:item_list' %}" class="btn btn-secondary">物品列表</a>
+            </div>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="message {{ message.tags }}" style="padding: 15px; margin-bottom: 20px; border-radius: 4px; background-color: {% if message.tags == 'success' %}#d4edda{% else %}#f8d7da{% endif %}; color: {% if message.tags == 'success' %}#155724{% else %}#721c24{% endif %};">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="table-container">
+            {% if boxes %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>容器編號</th>
+                            <th>類別</th>
+                            <th>描述</th>
+                            <th>負責人</th>
+                            <th>狀態</th>
+                            <th>鎖定</th>
+                            <th>建立日期</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for box in boxes %}
+                        <tr>
+                            <td><strong>{{ box.BoxID }}</strong></td>
+                            <td>{{ box.Category|default:"—" }}</td>
+                            <td>{{ box.Description|default:"—" }}</td>
+                            <td>{{ box.Owner|default:"—" }}</td>
+                            <td>
+                                {% if box.Status == "使用中" %}
+                                    <span class="status-badge status-active">{{ box.Status }}</span>
+                                {% elif box.Status == "空閒" %}
+                                    <span class="status-badge status-idle">{{ box.Status }}</span>
+                                {% elif box.Status == "結案" %}
+                                    <span class="status-badge status-closed">{{ box.Status }}</span>
+                                {% else %}
+                                    {{ box.Status|default:"—" }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if box.Locked %}
+                                    <span class="locked-icon">🔒 是</span>
+                                {% else %}
+                                    否
+                                {% endif %}
+                            </td>
+                            <td>{{ box.CreateDate|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                <a href="{% url 'material:box_edit' box.BoxID %}" class="btn btn-edit">編輯</a>
+                                <form method="post" action="{% url 'material:box_delete' box.BoxID %}" style="display: inline;" onsubmit="return confirm('確定要刪除此容器嗎？');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-delete">刪除</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">📦</div>
+                    <h3>尚無容器資料</h3>
+                    <p>點擊上方「新增容器」按鈕來建立第一個容器</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 新增容器彈出表單 -->
+    <div id="addBoxModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>新增容器</h2>
+                <span class="close" onclick="closeAddModal()">&times;</span>
+            </div>
+            <form method="post" action="{% url 'material:box_add' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="BoxID">
+                            容器編號 <span class="required">*</span>
+                            <span class="help-text">編號唯一，不可重複</span>
+                        </label>
+                        <input type="text" id="BoxID" name="BoxID" required maxlength="50" placeholder="例如：BOX-001">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="Category">
+                            類別
+                            <span class="help-text">類別（如：一般物料、維修件）</span>
+                        </label>
+                        <select id="Category" name="Category">
+                            <option value="">請選擇類別</option>
+                            <option value="一般物料">一般物料</option>
+                            <option value="維修件">維修件</option>
+                            <option value="耗材">耗材</option>
+                            <option value="工具">工具</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="Description">
+                            描述
+                            <span class="help-text">備註該編號的用途</span>
+                        </label>
+                        <input type="text" id="Description" name="Description" maxlength="255" placeholder="例如：用於存放辦公室文具">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="Owner">
+                            負責人
+                            <span class="help-text">負責人姓名</span>
+                        </label>
+                        <input type="text" id="Owner" name="Owner" maxlength="50" placeholder="例如：張三">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="Status">
+                            狀態
+                            <span class="help-text">狀態（使用中、空閒、結案）</span>
+                        </label>
+                        <select id="Status" name="Status">
+                            <option value="">請選擇狀態</option>
+                            <option value="使用中" selected>使用中</option>
+                            <option value="空閒">空閒</option>
+                            <option value="結案">結案</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="Locked" name="Locked" value="true">
+                            <label for="Locked">
+                                鎖定此容器
+                                <span class="help-text">是否鎖定（鎖定後將無法進行調撥）</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel" onclick="closeAddModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">確認新增</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 開啟新增容器彈出視窗
+        function openAddModal() {
+            document.getElementById('addBoxModal').classList.add('show');
+            document.body.style.overflow = 'hidden'; // 防止背景滾動
+        }
+
+        // 關閉新增容器彈出視窗
+        function closeAddModal() {
+            document.getElementById('addBoxModal').classList.remove('show');
+            document.body.style.overflow = 'auto'; // 恢復背景滾動
+        }
+
+        // 點擊彈出視窗外部區域時關閉
+        window.onclick = function(event) {
+            const modal = document.getElementById('addBoxModal');
+            if (event.target == modal) {
+                closeAddModal();
+            }
+        }
+
+        // 按 ESC 鍵關閉彈出視窗
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeAddModal();
+            }
+        });
+    </script>
+</body>
+</html>
