@@ -42,6 +42,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+
+    'material_app.middleware.TokenAuthMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',

@@ -1,35 +1,21 @@
-"""
-URL configuration for core project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
 from django.urls import path, include
 
-
-# core/urls.py
-from django.contrib import admin
-from django.urls import path, include
-from django.shortcuts import redirect
-
-def home_redirect(request):
-    return redirect('material:box_list')
+# --- 重點：加入下面這行 ---
+from material_app import views 
+# -----------------------
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('material/', include('material_app.urls')),
-    path('', home_redirect, name='home'),  # 首頁重定向
+    
+    # Auth 相關
+    path('api/auth/login/', views.api_login, name='api_login'),
+    path('api/auth/logout/', views.api_logout, name='api_logout'),
+    path('api/auth/refresh/', views.api_refresh, name='api_refresh'), # 預留
+
+    # User 相關
+    path('api/me/', views.get_me, name='api_me'),
+
+    path('', views.box_list, name='home'),
 ]
-
-

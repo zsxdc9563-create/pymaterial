@@ -1,7 +1,14 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.http import JsonResponse
-from .models import MaterialOverview, ItemList, TransactionLog
+from django.http import JsonResponse, HttpResponseRedirect
+from .models import MaterialOverview, ItemList, TransactionLog, Employee, AuthToken
+import secrets
+from django.utils import timezone
+from datetime import timedelta
+from django.views.decorators.csrf import csrf_exempt  # <--- 重點：補上這一行
+import json  # 處理前端傳來的 JSON 資料也需要這個
+# 匯入你的 Models
+from .models import MaterialOverview, ItemList, TransactionLog, Employee, AuthToken
 
 
 # ==================== 容器 CRUD ====================
@@ -9,7 +16,7 @@ from .models import MaterialOverview, ItemList, TransactionLog
 def box_list(request):
     """容器列表"""
     boxes = MaterialOverview.objects.all().order_by('-CreateDate')
-    items = ItemList.objects.all().select_related('BoxID').order_by('SN')  # ← 新增：傳物品列表給入庫 Modal
+    items = ItemList.objects.all().select_related('BoxID').order_by('SN')
     return render(request, 'material/box_list.html', {
         'boxes': boxes,
         'items': items,
@@ -78,52 +85,35 @@ def box_delete(request, box_id):
     if request.method == 'POST':
         try:
             box = get_object_or_404(MaterialOverview, BoxID=box_id)
-
             items_count = ItemList.objects.filter(BoxID=box).count()
             if items_count > 0:
-                messages.error(request, f'容器 {box_id} 內還有 {items_count} 個物品，無法刪除！請先清空容器。')
+                messages.error(request, f'容器 {box_id} 內還有 {items_count} 個物品，無法刪除！')
                 return redirect('material:box_list')
 
             box.delete()
             messages.success(request, f'容器 {box_id} 已刪除')
-
         except Exception as e:
             messages.error(request, f'刪除容器失敗: {str(e)}')
 
     return redirect('material:box_list')
+
 
 def box_toggle_lock(request):
     """鎖定 / 解鎖容器"""
     if request.method == 'POST':
         try:
             box_id = request.POST.get('BoxID')
-            action = request.POST.get('action')  # 'lock' or 'unlock'
-
+            action = request.POST.get('action')
             box = get_object_or_404(MaterialOverview, BoxID=box_id)
 
-            # ── 將來加權限判斷的位置 ──
-            # if not has_lock_permission(request.user):
-            #     messages.error(request, '您沒有鎖定/解鎖的權限')
-            #     return redirect('material:box_list')
-
             if action == 'lock':
-                if box.Locked:
-                    messages.warning(request, f'容器 {box_id} 已經是鎖定狀態')
-                else:
-                    box.Locked = True
-                    box.save()
-                    messages.success(request, f'容器 {box_id} 已鎖定')
-
+                box.Locked = True
+                box.save()
+                messages.success(request, f'容器 {box_id} 已鎖定')
             elif action == 'unlock':
-                if not box.Locked:
-                    messages.warning(request, f'容器 {box_id} 已經是未鎖定狀態')
-                else:
-                    box.Locked = False
-                    box.save()
-                    messages.success(request, f'容器 {box_id} 已解鎖')
-
-            else:
-                messages.error(request, '無效的操作')
+                box.Locked = False
+                box.save()
+                messages.success(request, f'容器 {box_id} 已解鎖')
 
         except Exception as e:
             messages.error(request, f'鎖定操作失敗: {str(e)}')
@@ -131,108 +121,70 @@ def box_toggle_lock(request):
     return redirect('material:box_list')
 
 
-
 def box_checkin(request):
     """入庫：將選定的物品數量累加到指定容器"""
     if request.method == 'POST':
         try:
             box_id = request.POST.get('BoxID')
-            selected_items = request.POST.getlist('selected_items')  # 勾選的物品序號（可多筆）
+            selected_items = request.POST.getlist('selected_items')
+            # 獲取當前登入員工姓名
+            operator_name = request.employee.Name if request.employee else '系統'
 
             if not box_id:
                 messages.error(request, '未指定目標容器')
                 return redirect('material:box_list')
 
-            # 確認目標容器存在
             target_box = get_object_or_404(MaterialOverview, BoxID=box_id)
-
-            # 檢查容器是否鎖定
             if target_box.Locked:
                 messages.error(request, f'容器 {box_id} 已鎖定，無法入庫')
                 return redirect('material:box_list')
 
-            if not selected_items:
-                messages.warning(request, '沒有選擇任何物品')
-                return redirect('material:box_list')
-
             success_count = 0
-
             for sn in selected_items:
                 qty = int(request.POST.get(f'qty_{sn}', 0))
-                if qty <= 0:
-                    continue
+                if qty <= 0: continue
 
-                # 找到來源物品（原本在哪個容器）
-                try:
-                    source_item = ItemList.objects.get(SN=sn)
-                except ItemList.DoesNotExist:
-                    messages.warning(request, f'物品序號 {sn} 不存在，已跳過')
-                    continue
-
+                source_item = ItemList.objects.get(SN=sn)
                 original_box_id = source_item.BoxID.BoxID
                 stock_before = source_item.Quantity
 
-                # ── 情況一：物品本身就在目標容器，直接累加 ──
+                # 累加或調撥邏輯
                 if source_item.BoxID == target_box:
                     source_item.Quantity += qty
                     source_item.save()
-
-                    TransactionLog.objects.create(
-                        SN=source_item,
-                        ActionType='入庫',
-                        ToBoxID=box_id,
-                        TransQty=qty,
-                        StockBefore=stock_before,
-                        StockAfter=source_item.Quantity,
-                        Operator='系統',
-                        Remark=f'從容器列表入庫'
-                    )
-                    success_count += 1
-                    continue
-
-                # ── 情況二：物品在其他容器，視為調撥 ──
-                # 檢查目標容器裡是否已有同一序號的物品
-                try:
-                    target_item = ItemList.objects.get(SN=sn, BoxID=target_box)
-                    target_item.Quantity += qty
-                    target_item.save()
-                except ItemList.DoesNotExist:
-                    # 目標容器沒有，複製一筆過來
-                    target_item = ItemList.objects.create(
-                        SN=sn,
-                        BoxID=target_box,
-                        ItemName=source_item.ItemName,
-                        Spec=source_item.Spec,
-                        Location=source_item.Location,
-                        Quantity=qty
-                    )
-
-                # 來源容器扣減
-                source_item.Quantity -= qty
-                if source_item.Quantity <= 0:
-                    source_item.delete()
+                    action = '入庫'
+                    remark = '從容器列表直接入庫'
+                    current_item = source_item
                 else:
-                    source_item.save()
+                    try:
+                        target_item = ItemList.objects.get(SN=sn, BoxID=target_box)
+                        target_item.Quantity += qty
+                        target_item.save()
+                    except ItemList.DoesNotExist:
+                        target_item = ItemList.objects.create(
+                            SN=sn, BoxID=target_box, ItemName=source_item.ItemName,
+                            Spec=source_item.Spec, Location=source_item.Location, Quantity=qty
+                        )
+                    source_item.Quantity -= qty
+                    if source_item.Quantity <= 0:
+                        source_item.delete()
+                    else:
+                        source_item.save()
+                    action = '調撥'
+                    remark = f'入庫調撥（來源：{original_box_id}）'
+                    current_item = target_item
 
-                # 記錄調撥
                 TransactionLog.objects.create(
-                    SN=target_item,
-                    ActionType='調撥',
-                    FromBoxID=original_box_id,
-                    ToBoxID=box_id,
-                    TransQty=qty,
-                    StockBefore=stock_before,
-                    StockAfter=target_item.Quantity,
-                    Operator='系統',
-                    Remark=f'從容器列表入庫（來源：{original_box_id}）'
+                    SN=current_item, ActionType=action,
+                    FromBoxID=original_box_id if action == '調撥' else None,
+                    ToBoxID=box_id, TransQty=qty,
+                    StockBefore=stock_before, StockAfter=current_item.Quantity,
+                    Operator=operator_name, Remark=remark
                 )
                 success_count += 1
 
             if success_count > 0:
-                messages.success(request, f'成功入庫 {success_count} 個物品到容器 {box_id}')
-            else:
-                messages.warning(request, '沒有有效的物品入庫')
-
+                messages.success(request, f'成功處理 {success_count} 項物品到容器 {box_id}')
         except Exception as e:
             messages.error(request, f'入庫失敗: {str(e)}')
 
@@ -245,10 +197,7 @@ def item_list(request):
     """物品列表"""
     items = ItemList.objects.all().select_related('BoxID').order_by('SN')
     boxes = MaterialOverview.objects.all().order_by('BoxID')
-    return render(request, 'material/item_list.html', {
-        'items': items,
-        'boxes': boxes
-    })
+    return render(request, 'material/item_list.html', {'items': items, 'boxes': boxes})
 
 
 def item_add(request):
@@ -257,44 +206,27 @@ def item_add(request):
         try:
             sn = request.POST.get('SN')
             box_id = request.POST.get('BoxID')
-            item_name = request.POST.get('ItemName')
-            spec = request.POST.get('Spec', '')
-            location = request.POST.get('Location', '')
             quantity = int(request.POST.get('Quantity', 0))
-
-            if ItemList.objects.filter(SN=sn).exists():
-                messages.error(request, f'物品序號 {sn} 已存在')
-                return redirect('material:item_list')
+            operator_name = request.employee.Name if request.employee else '系統'
 
             box = get_object_or_404(MaterialOverview, BoxID=box_id)
-
             item = ItemList.objects.create(
-                SN=sn,
-                BoxID=box,
-                ItemName=item_name,
-                Spec=spec if spec else None,
-                Location=location if location else None,
+                SN=sn, BoxID=box, ItemName=request.POST.get('ItemName'),
+                Spec=request.POST.get('Spec') or None,
+                Location=request.POST.get('Location') or None,
                 Quantity=quantity
             )
 
             TransactionLog.objects.create(
-                SN=item,
-                ActionType='入庫',
-                ToBoxID=box_id,
-                TransQty=quantity,
-                StockBefore=0,
-                StockAfter=quantity,
-                Operator=request.POST.get('Operator', '系統'),
-                Remark=f'新增物品入庫'
+                SN=item, ActionType='入庫', ToBoxID=box_id,
+                TransQty=quantity, StockBefore=0, StockAfter=quantity,
+                Operator=operator_name, Remark='手動新增物品入庫'
             )
 
             messages.success(request, f'物品 {sn} 新增成功！')
-            # 用 HttpResponseRedirect 直接指定 URL，避免帶參數導致訊息重複
-            from django.http import HttpResponseRedirect
             return HttpResponseRedirect('/material/items/')
-
         except Exception as e:
-            messages.error(request, f'新增物品失敗: {str(e)}')
+            messages.error(request, f'失敗: {str(e)}')
             return redirect('material:item_list')
 
     boxes = MaterialOverview.objects.all().order_by('BoxID')
@@ -304,48 +236,28 @@ def item_add(request):
 def item_edit(request, item_id):
     """編輯物品"""
     item = get_object_or_404(ItemList, SN=item_id)
-
     if request.method == 'POST':
         try:
-            box_id = request.POST.get('BoxID')
-            old_quantity = item.Quantity
-            new_quantity = int(request.POST.get('Quantity', 0))
+            old_qty = item.Quantity
+            new_qty = int(request.POST.get('Quantity', 0))
+            operator_name = request.employee.Name if request.employee else '系統'
 
-            item.BoxID = get_object_or_404(MaterialOverview, BoxID=box_id)
+            item.BoxID = get_object_or_404(MaterialOverview, BoxID=request.POST.get('BoxID'))
             item.ItemName = request.POST.get('ItemName')
-            item.Spec = request.POST.get('Spec') or None
-            item.Location = request.POST.get('Location') or None
-            item.Quantity = new_quantity
+            item.Quantity = new_qty
             item.save()
 
-            if old_quantity != new_quantity:
-                action_type = '入庫' if new_quantity > old_quantity else '出庫'
-                trans_qty = abs(new_quantity - old_quantity)
-
+            if old_qty != new_qty:
                 TransactionLog.objects.create(
-                    SN=item,
-                    ActionType=action_type,
-                    ToBoxID=box_id if action_type == '入庫' else None,
-                    FromBoxID=box_id if action_type == '出庫' else None,
-                    TransQty=trans_qty,
-                    StockBefore=old_quantity,
-                    StockAfter=new_quantity,
-                    Operator=request.POST.get('Operator', '系統'),
-                    Remark='編輯物品資料'
+                    SN=item, ActionType='入庫' if new_qty > old_qty else '出庫',
+                    TransQty=abs(new_qty - old_qty), StockBefore=old_qty, StockAfter=new_qty,
+                    Operator=operator_name, Remark='編輯資料變更數量'
                 )
-
-            messages.success(request, f'物品 {item_id} 更新成功！')
+            messages.success(request, f'物品 {item_id} 已更新')
             return redirect('material:item_list')
-
         except Exception as e:
-            messages.error(request, f'更新物品失敗: {str(e)}')
-            return redirect('material:item_edit', item_id=item_id)
-
-    boxes = MaterialOverview.objects.all().order_by('BoxID')
-    return render(request, 'material/item_edit.html', {
-        'item': item,
-        'boxes': boxes
-    })
+            messages.error(request, f'失敗: {str(e)}')
+    return render(request, 'material/item_edit.html', {'item': item, 'boxes': MaterialOverview.objects.all()})
 
 
 def item_delete(request, item_id):
@@ -353,23 +265,15 @@ def item_delete(request, item_id):
     if request.method == 'POST':
         try:
             item = get_object_or_404(ItemList, SN=item_id)
-
             TransactionLog.objects.create(
-                SN=item,
-                ActionType='出庫',
-                FromBoxID=item.BoxID.BoxID,
-                TransQty=item.Quantity,
-                StockBefore=item.Quantity,
-                StockAfter=0,
-                Operator=request.POST.get('Operator', '系統'),
-                Remark='刪除物品'
+                SN=item, ActionType='出庫', FromBoxID=item.BoxID.BoxID,
+                TransQty=item.Quantity, StockBefore=item.Quantity, StockAfter=0,
+                Operator=request.employee.Name if request.employee else '系統', Remark='刪除物品'
             )
-
             item.delete()
             messages.success(request, f'物品 {item_id} 已刪除')
         except Exception as e:
-            messages.error(request, f'刪除物品失敗: {str(e)}')
-
+            messages.error(request, f'失敗: {str(e)}')
     return redirect('material:item_list')
 
 
@@ -378,39 +282,19 @@ def item_delete(request, item_id):
 def transaction_transfer(request):
     """物品調撥"""
     if request.method == 'POST':
-        # ... POST 的部分完全不動 ...
         try:
             from_box_id = request.POST.get('from_box')
             to_box_id = request.POST.get('to_box')
             item_sn = request.POST.get('item')
             quantity = int(request.POST.get('quantity', 0))
-            operator = request.POST.get('operator', '系統')
-            remark = request.POST.get('remark', '')
+            # 優先使用登入者姓名
+            operator_name = request.employee.Name if request.employee else request.POST.get('operator', '系統')
 
             from_box = get_object_or_404(MaterialOverview, BoxID=from_box_id)
             to_box = get_object_or_404(MaterialOverview, BoxID=to_box_id)
 
-            if from_box.Locked:
-                messages.error(request, f'來源容器 {from_box_id} 已鎖定，無法調撥')
-                return redirect('material:transaction_transfer')
-
-            if to_box.Locked:
-                messages.error(request, f'目標容器 {to_box_id} 已鎖定，無法調撥')
-                return redirect('material:transaction_transfer')
-
-            try:
-                from_item = ItemList.objects.get(SN=item_sn, BoxID=from_box)
-            except ItemList.DoesNotExist:
-                messages.error(request, f'來源容器中找不到物品 {item_sn}')
-                return redirect('material:transaction_transfer')
-
-            if from_item.Quantity < quantity:
-                messages.error(request, f'來源容器庫存不足！現有: {from_item.Quantity}，需要: {quantity}')
-                return redirect('material:transaction_transfer')
-
+            from_item = ItemList.objects.get(SN=item_sn, BoxID=from_box)
             stock_before = from_item.Quantity
-            item_name = from_item.ItemName
-
             from_item.Quantity -= quantity
 
             try:
@@ -419,12 +303,8 @@ def transaction_transfer(request):
                 to_item.save()
             except ItemList.DoesNotExist:
                 to_item = ItemList.objects.create(
-                    SN=item_sn,
-                    BoxID=to_box,
-                    ItemName=from_item.ItemName,
-                    Spec=from_item.Spec,
-                    Location=from_item.Location,
-                    Quantity=quantity
+                    SN=item_sn, BoxID=to_box, ItemName=from_item.ItemName,
+                    Spec=from_item.Spec, Location=from_item.Location, Quantity=quantity
                 )
 
             if from_item.Quantity == 0:
@@ -433,57 +313,171 @@ def transaction_transfer(request):
                 from_item.save()
 
             TransactionLog.objects.create(
-                SN=to_item,
-                ActionType='調撥',
-                FromBoxID=from_box_id,
-                ToBoxID=to_box_id,
-                TransQty=quantity,
-                StockBefore=stock_before,
-                StockAfter=from_item.Quantity if from_item.Quantity > 0 else 0,
-                Operator=operator,
-                Remark=remark or f'從 {from_box_id} 調撥到 {to_box_id}'
+                SN=to_item, ActionType='調撥', FromBoxID=from_box_id, ToBoxID=to_box_id,
+                TransQty=quantity, StockBefore=stock_before, StockAfter=from_item.Quantity,
+                Operator=operator_name, Remark=request.POST.get('remark', f'從 {from_box_id} 調撥')
             )
-
-            messages.success(request, f'調撥成功！已將 {quantity} 件 {item_name} 從 {from_box_id} 調撥到 {to_box_id}')
+            messages.success(request, '調撥成功！')
             return redirect('material:transaction_transfer')
-
         except Exception as e:
-            messages.error(request, f'調撥失敗: {str(e)}')
-            import traceback
-            print(traceback.format_exc())
-            return redirect('material:transaction_transfer')
-
-    # ===== GET：讀取參數來預填充，沒有參數的話就是空的 =====
-    pre_sn = request.GET.get('sn', '')
-    pre_source_box = request.GET.get('source_box', '')
-    pre_item = ItemList.objects.filter(SN=pre_sn).first() if pre_sn else None
+            messages.error(request, f'失敗: {str(e)}')
 
     boxes = MaterialOverview.objects.filter(Locked=False).order_by('BoxID')
-    return render(request, 'material/transaction_transfer.html', {
-        'boxes': boxes,
-        'pre_sn': pre_sn,                 # 預填充物品序號
-        'pre_source_box': pre_source_box, # 預填充來源容器
-        'pre_item': pre_item,             # 預填充物品物件（帶有數量等資訊）
-    })
+    return render(request, 'material/transaction_transfer.html', {'boxes': boxes})
+
 
 def transaction_history(request):
-    """交易記錄"""
-    transactions = TransactionLog.objects.all().select_related(
-        'SN', 'SN__BoxID'
-    ).order_by('-Timestamp')
-
-    # 統計卡片 — 直接用 ORM filter，不需要額外引進 service
+    """歷史紀錄"""
+    transactions = TransactionLog.objects.all().select_related('SN').order_by('-Timestamp')
     stats = {
-        'total':    transactions.count(),
-        'checkin':  transactions.filter(ActionType='入庫').count(),
+        'total': transactions.count(),
+        'checkin': transactions.filter(ActionType='入庫').count(),
         'checkout': transactions.filter(ActionType='出庫').count(),
         'transfer': transactions.filter(ActionType='調撥').count(),
     }
+    return render(request, 'material/transaction_history.html', {'transactions': transactions, 'stats': stats})
 
-    return render(request, 'material/transaction_history.html', {
-        'transactions': transactions,
-        'stats': stats,
-    })
+
+# ==================== 認證：API Login / Logout ====================
+
+
+@csrf_exempt
+def api_login(request):
+    """GET → 顯示登入頁面 / POST → 驗證並設定 cookie 跳轉"""
+
+    if request.method == 'GET':
+        return render(request, 'material/login.html')
+
+    if request.method == 'POST':
+        # 支援 JSON 與 Form-data
+        try:
+            if request.content_type == 'application/json':
+                data = json.loads(request.body)
+            else:
+                data = request.POST
+            emp_id = data.get('emp_id')
+            pw = data.get('password')
+        except:
+            # 若是瀏览器表單提交，用模板渲染錯誤
+            return render(request, 'material/login.html', {'error_msg': '資料格式錯誤'})
+
+        try:
+            user = Employee.objects.get(EmpID=emp_id)
+
+            if not user.IsActive:
+                # --- 帳號停用 ---
+                # JSON 請求 → 回傳 JsonResponse
+                if request.content_type == 'application/json':
+                    return JsonResponse({"error": "帳號已停用"}, status=401, json_dumps_params={'ensure_ascii': False})
+                # 瀏浏器表單 → 重新渲染登入頁，帶錯誤訊息
+                return render(request, 'material/login.html', {'error_msg': '帳號已停用'})
+
+            if not user.check_password(pw):
+                # --- 密碼錯誤 ---
+                if request.content_type == 'application/json':
+                    return JsonResponse({"error": "密碼錯誤"}, status=401, json_dumps_params={'ensure_ascii': False})
+                return render(request, 'material/login.html', {'error_msg': '工號或密碼輸入錯誤'})
+
+            # --- 驗證通過：發放 Token ---
+            token_val = secrets.token_urlsafe(64)
+            expiry = timezone.now() + timedelta(hours=24)
+            AuthToken.objects.create(Token=token_val, Employee=user, ExpiresAt=expiry)
+
+            # JSON 請求（前端 API 調用）→ 直接回傳 token
+            if request.content_type == 'application/json':
+                return JsonResponse({"token": token_val}, status=200)
+
+            # 瀏浏器表單提交 → 設定 cookie，跳轉到主頁
+            response = redirect('material:box_list')
+            response.set_cookie(
+                'auth_token',
+                token_val,
+                expires=expiry,
+                httponly=True,       # JavaScript 無法讀取，防 XSS
+                samesite='Lax',     # CSRF 基本防護
+            )
+            return response
+
+        except Employee.DoesNotExist:
+            if request.content_type == 'application/json':
+                return JsonResponse({"error": "工號不存在"}, status=404, json_dumps_params={'ensure_ascii': False})
+            return render(request, 'material/login.html', {'error_msg': '工號不存在'})
+
+    return JsonResponse({"error": "不支援的請求方法"}, status=405, json_dumps_params={'ensure_ascii': False})
+
+
+
+
+def api_logout(request):
+    token = request.COOKIES.get('auth_token')
+    if token:
+        AuthToken.objects.filter(Token=token).delete()
+
+    response = redirect('material:login')  # 改為 material app 內的 name
+    response.delete_cookie('auth_token')
+    return response
+
+
+
+
+@csrf_exempt
+def api_refresh(request):
+    """POST /api/auth/refresh"""
+    token_val = request.headers.get('Authorization', '').replace('Bearer ', '')
+    # 邏輯：找到舊 Token，刪除並發放新的
+    old_token = AuthToken.objects.filter(Token=token_val).first()
+    if old_token:
+        new_val = secrets.token_urlsafe(64)
+        old_token.Token = new_val
+        old_token.ExpiresAt = timezone.now() + timedelta(hours=24)
+        old_token.save()
+        return JsonResponse({"token": new_val})
+    return JsonResponse({"error": "無效的 Token"}, status=401)
+
+def get_me(request):
+    """GET /api/me"""
+    # 假設 Middleware 已將員工存入 request.employee
+    emp = getattr(request, 'employee', None)
+    if not emp:
+        return JsonResponse({"error": "未登入"}, status=401, json_dumps_params={'ensure_ascii': False})
+
+    return JsonResponse({
+        "ID": emp.EmpID,
+        "Name": emp.Name,
+        "DepartmentID": getattr(emp, 'DeptID', 'N/A'),
+        "JobGrade": getattr(emp, 'JobGrade', 'N/A'),
+        "IDNumber": "********",
+        "Birthday": "1992-05-12", # 範例格式
+        "Gender": "F"
+    }, json_dumps_params={'ensure_ascii': False})
+
+
+# ==================== 用戶 API ====================
+
+def get_me(request):
+    """
+    對應圖片 GET /api/me
+    取得當前登入使用者資訊
+    """
+    # 這裡假設你的 Middleware 已經處理好 request.employee
+    employee = getattr(request, 'employee', None)
+
+    if not employee:
+        return JsonResponse({"error": "未登入或 Token 無效"}, status=401)
+
+    # 回傳圖片中的欄位格式
+    return JsonResponse({
+        "ID": employee.EmpID,
+        "Name": employee.Name,
+        "DepartmentID": employee.DeptID if hasattr(employee, 'DeptID') else "N/A",
+        "JobGrade": employee.JobGrade if hasattr(employee, 'JobGrade') else "N/A",
+        "IDNumber": "********", # 安全考量遮罩
+        "Birthday": "1992-05-12", # 範例格式
+        "Gender": "F"
+    }, status=200)
+
+
+
 
 
 
@@ -491,42 +485,12 @@ def transaction_history(request):
 # ==================== API ====================
 
 def get_box_items(request, box_id):
-    """API: 獲取指定容器內的所有物品"""
-    try:
-        box = get_object_or_404(MaterialOverview, BoxID=box_id)
-        items = ItemList.objects.filter(BoxID=box)
-
-        items_data = [{
-            'item_id': item.SN,
-            'item_name': item.ItemName,
-            'spec': item.Spec or '',
-            'quantity': item.Quantity,
-            'location': item.Location or ''
-        } for item in items]
-
-        return JsonResponse({'items': items_data})
-
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+    items = ItemList.objects.filter(BoxID_id=box_id)
+    data = [{'item_id': i.SN, 'item_name': i.ItemName, 'quantity': i.Quantity} for i in items]
+    return JsonResponse({'items': data})
 
 
 def get_recent_transfers(request):
-    """API: 獲取最近的調撥記錄"""
-    try:
-        transfers = TransactionLog.objects.filter(
-            ActionType='調撥'
-        ).select_related('SN').order_by('-Timestamp')[:10]
-
-        transfers_data = [{
-            'timestamp': transfer.Timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-            'item_name': transfer.SN.ItemName,
-            'quantity': transfer.TransQty,
-            'from_box': transfer.FromBoxID,
-            'to_box': transfer.ToBoxID,
-            'operator': transfer.Operator or '未知'
-        } for transfer in transfers]
-
-        return JsonResponse({'transfers': transfers_data})
-
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+    transfers = TransactionLog.objects.filter(ActionType='調撥').order_by('-Timestamp')[:10]
+    data = [{'item_name': t.SN.ItemName, 'from': t.FromBoxID, 'to': t.ToBoxID} for t in transfers]
+    return JsonResponse({'transfers': data})

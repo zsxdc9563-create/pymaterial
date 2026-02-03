@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登入 — 物料管理系統</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        /* ===== 全頁背景 ===== */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 60%, #3a6db5 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 幾何裝飾圖案（背景上的半透明圓圈）*/
+        .bg-shape {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.04);
+            pointer-events: none;
+        }
+        .bg-shape-1 { width: 400px; height: 400px; top: -120px; left: -100px; }
+        .bg-shape-2 { width: 300px; height: 300px; bottom: -80px; right: -60px; background: rgba(255,255,255,0.03); }
+        .bg-shape-3 { width: 180px; height: 180px; top: 55%; left: 12%; background: rgba(255,255,255,0.025); }
+        .bg-shape-4 { width: 120px; height: 120px; top: 18%; right: 18%; background: rgba(255,255,255,0.035); }
+
+        /* ===== 登入卡片 ===== */
+        .login-card {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 420px;
+            background: rgba(255,255,255,0.97);
+            border-radius: 18px;
+            box-shadow:
+                0 25px 60px rgba(0,0,0,0.25),
+                0 0 0 1px rgba(255,255,255,0.15);
+            overflow: hidden;
+            animation: cardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(30px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)  scale(1);    }
+        }
+
+        /* ── 卡片頂部 logo 區 ── */
+        .card-logo {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            padding: 36px 28px 28px;
+            text-align: center;
+        }
+        .card-logo .logo-icon {
+            width: 64px; height: 64px;
+            background: rgba(255,255,255,0.12);
+            border-radius: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 14px;
+        }
+        .card-logo .logo-icon i { font-size: 2rem; color: #fff; }
+        .card-logo h2 { color: #fff; font-size: 1.45rem; font-weight: 700; letter-spacing: 0.5px; }
+        .card-logo p  { color: rgba(255,255,255,0.6); font-size: 13px; margin-top: 4px; }
+
+        /* ── 表單區 ── */
+        .card-body-custom { padding: 32px 28px 28px; }
+
+        .form-group { margin-bottom: 22px; }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 7px;
+            letter-spacing: 0.3px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+        .input-wrapper .input-icon {
+            position: absolute;
+            left: 14px; top: 50%;
+            transform: translateY(-50%);
+            font-size: 1rem;
+            color: #9ca3af;
+            pointer-events: none;
+            z-index: 2;
+        }
+        .input-wrapper input {
+            width: 100%;
+            padding: 12px 14px 12px 42px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 15px;
+            color: #1f2937;
+            background: #fafafa;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+            outline: none;
+        }
+        .input-wrapper input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3.5px rgba(102,126,234,0.2);
+            background: #fff;
+        }
+        .input-wrapper input::placeholder { color: #9ca3af; }
+
+        /* ── 錯誤訊息 ── */
+        .error-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 9px;
+            padding: 11px 14px;
+            margin-bottom: 20px;
+            animation: shake 0.4s ease;
+        }
+        .error-box i { color: #dc2626; font-size: 1.1rem; flex-shrink: 0; }
+        .error-box span { font-size: 14px; color: #991b1b; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%      { transform: translateX(-6px); }
+            40%      { transform: translateX(6px); }
+            60%      { transform: translateX(-4px); }
+            80%      { transform: translateX(4px); }
+        }
+
+        /* ── 提交按鈕 ── */
+        .btn-login {
+            width: 100%;
+            padding: 13px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            transition: opacity 0.2s, transform 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-login:hover  { opacity: 0.9; transform: translateY(-1px); }
+        .btn-login:active { transform: translateY(0); opacity: 0.8; }
+
+        /* ── 底部提示 ── */
+        .card-footer-custom {
+            text-align: center;
+            padding: 0 28px 24px;
+        }
+        .card-footer-custom p {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        /* ── responsive ── */
+        @media (max-width: 480px) {
+            .login-card { margin: 20px; border-radius: 14px; }
+            .card-logo  { padding: 28px 20px 22px; }
+            .card-body-custom { padding: 24px 20px 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- 背景幾何裝飾 -->
+<div class="bg-shape bg-shape-1"></div>
+<div class="bg-shape bg-shape-2"></div>
+<div class="bg-shape bg-shape-3"></div>
+<div class="bg-shape bg-shape-4"></div>
+
+<!-- 登入卡片 -->
+<div class="login-card">
+
+    <!-- Logo 區 -->
+    <div class="card-logo">
+        <div class="logo-icon">
+            <i class="bi bi-boxes"></i>
+        </div>
+        <h2>物料管理系統</h2>
+        <p>請使用工號登入</p>
+    </div>
+
+    <!-- 表單 -->
+    <div class="card-body-custom">
+
+        <!-- 錯誤訊息（後端傳來才顯示）-->
+        {% if error_msg %}
+        <div class="error-box">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <span>{{ error_msg }}</span>
+        </div>
+        {% endif %}
+
+        <form method="POST" autocomplete="off">
+            {% csrf_token %}
+
+            <!-- 打工號 -->
+            <div class="form-group">
+                <label for="emp_id">工號</label>
+                <div class="input-wrapper">
+                    <i class="bi bi-person-fill input-icon"></i>
+                    <input type="text" id="emp_id" name="emp_id" placeholder="輸入你的打工號" required autofocus>
+                </div>
+            </div>
+
+            <!-- 密碼 -->
+            <div class="form-group">
+                <label for="password">密碼</label>
+                <div class="input-wrapper">
+                    <i class="bi bi-lock-fill input-icon"></i>
+                    <input type="password" id="password" name="password" placeholder="輸入密碼" required>
+                </div>
+            </div>
+
+            <!-- 提交 -->
+            <button type="submit" class="btn-login">
+                <i class="bi bi-box-arrow-in-right"></i> 登入
+            </button>
+        </form>
+    </div>
+
+    <!-- 底部 -->
+    <div class="card-footer-custom">
+        <p>忘記密碼？請聯絡系統管理員</p>
+    </div>
+</div>
+
+</body>
+</html>

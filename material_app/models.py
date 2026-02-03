@@ -50,3 +50,63 @@ class TransactionLog(models.Model):
 
     def __str__(self):
         return f"{self.ActionType} {self.TransQty} of {self.SN_id}"
+
+
+
+
+# ==================== 新增：認證相關 model ====================
+
+class Employee(models.Model):
+    """員工帳號（打工號登入）"""
+    EmpID = models.CharField(max_length=50, primary_key=True, help_text="打工號，唯一")
+    Name = models.CharField(max_length=50, help_text="員工姓名")
+    Password = models.CharField(max_length=255, help_text="密碼（存儲為 hash）")
+    IsActive = models.BooleanField(default=True, help_text="帳號是否啟用")
+    CreateDate = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.EmpID} - {self.Name}"
+
+    # ── 密碼工具方法 ──
+    def set_password(self, raw_password):
+        """將明文密碼 hash 後儲存"""
+        import hashlib, os
+        salt = os.urandom(32)                          # 隨機 salt
+        key = hashlib.pbkdf2_hmac('sha256',
+                                  raw_password.encode('utf-8'),
+                                  salt, 100000)        # 迭代 10 萬次
+        # 儲存格式：salt(hex) + "$" + key(hex)
+        self.Password = salt.hex() + '$' + key.hex()
+
+    def check_password(self, raw_password):
+        """驗證明文密碼是否正確"""
+        import hashlib
+        if '$' not in self.Password:
+            return False
+        salt_hex, key_hex = self.Password.split('$', 1)
+        salt = bytes.fromhex(salt_hex)
+        stored_key = bytes.fromhex(key_hex)
+        new_key = hashlib.pbkdf2_hmac('sha256',
+                                      raw_password.encode('utf-8'),
+                                      salt, 100000)
+        return new_key == stored_key
+
+
+class AuthToken(models.Model):
+    """登入後生成的 Token"""
+    Token = models.CharField(max_length=128, primary_key=True, help_text="隨機生成的 token 字串")
+    Employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='tokens')
+    CreatedAt = models.DateTimeField(auto_now_add=True)
+    ExpiresAt = models.DateTimeField(help_text="過期時間（login 時設為當前 + 24h）")
+
+    def __str__(self):
+        return f"{self.Token[:16]}... → {self.Employee.EmpID}"
+
+    def is_expired(self):
+        """檢查 token 是否已過期"""
+        from django.utils import timezone
+        return timezone.now() > self.ExpiresAt
+
+
+
+

@@ -5,6 +5,12 @@ from . import views
 app_name = 'material'
 
 urlpatterns = [
+
+    # 新增登入頁面路徑
+    path("login/", views.api_login, name="login"), # 假設你的 views 裡叫 login_view
+    path('logout/', views.api_logout, name='logout'), # 確保名稱是 logout
+
+
     # 容器 CRUD
     path("boxes/", views.box_list, name="box_list"),
     path("boxes/add/", views.box_add, name="box_add"),
