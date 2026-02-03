@@ -31,7 +31,7 @@
                         <select class="form-select" id="from_box" name="from_box" required>
                             <option value="">-- 請選擇來源容器 --</option>
                             {% for box in boxes %}
-                            <option value="{{ box.BoxID }}">
+                            <option value="{{ box.BoxID }}" {% if box.BoxID == pre_source_box %}selected{% endif %}>
                                 {{ box.BoxID }} - {{ box.Description|default:"無描述" }}
                             </option>
                             {% endfor %}
@@ -119,7 +119,7 @@
                     </thead>
                     <tbody id="recent_transfers">
                         <tr>
-                            <td colspan="6" class="text-center text-muted">載入中...</td>
+                            <td colspan="6" class="text-center">載入中...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -137,6 +137,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const itemInfo = document.getElementById('item_info');
     const stockInfo = document.getElementById('stock_info');
 
+    // Django view 傳來的預填充值
+    const preSN = "{{ pre_sn }}";
+
     // 當選擇來源容器時，載入該容器的物品
     fromBoxSelect.addEventListener('change', function() {
         const boxId = this.value;
@@ -150,32 +153,25 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // 防止來源和目標相同
         if (boxId === toBoxSelect.value) {
             alert('來源容器和目標容器不能相同！');
             this.value = '';
             return;
         }
 
-        // 顯示載入中
         itemSelect.innerHTML = '<option value="">載入中...</option>';
         itemSelect.disabled = true;
 
-        // 載入物品列表
         const apiUrl = `/material/api/box/${boxId}/items/`;
-        console.log('正在載入:', apiUrl);
 
         fetch(apiUrl)
             .then(response => {
-                console.log('Response status:', response.status);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 return response.json();
             })
             .then(data => {
-                console.log('收到的資料:', data);
-
                 if (data.error) {
                     alert('載入物品失敗：' + data.error);
                     itemSelect.innerHTML = '<option value="">-- 載入失敗 --</option>';
@@ -187,7 +183,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.items.length === 0) {
                     itemSelect.innerHTML = '<option value="">-- 此容器沒有物品 --</option>';
                     itemSelect.disabled = true;
-                    alert(`容器 ${boxId} 內目前沒有物品`);
                 } else {
                     data.items.forEach(item => {
                         const option = document.createElement('option');
@@ -195,10 +190,18 @@ document.addEventListener('DOMContentLoaded', function() {
                         option.textContent = `${item.item_name} (庫存: ${item.quantity})`;
                         option.dataset.quantity = item.quantity;
                         option.dataset.spec = item.spec || '';
+                        // 如果這個物品序號和從來頁帶來的 preSN 一樣，標記為 selected
+                        if (preSN && item.item_id === preSN) {
+                            option.selected = true;
+                        }
                         itemSelect.appendChild(option);
                     });
                     itemSelect.disabled = false;
-                    console.log(`成功載入 ${data.items.length} 個物品`);
+
+                    // 如果有預填充的物品，觸發 item 的 change 來填入數量等資訊
+                    if (preSN) {
+                        itemSelect.dispatchEvent(new Event('change'));
+                    }
                 }
             })
             .catch(error => {
@@ -258,7 +261,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return false;
         }
 
-        // 防止重複提交
         if (submitBtn.disabled) {
             e.preventDefault();
             return false;
@@ -270,6 +272,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 載入最近的調撥記錄
     loadRecentTransfers();
+
+    // ===== 頁面載入時，如果來源容器已經預填充了，觸發 change 來帶動後面的欄位 =====
+    if (fromBoxSelect.value) {
+        fromBoxSelect.dispatchEvent(new Event('change'));
+    }
 });
 
 function loadRecentTransfers() {

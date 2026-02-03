@@ -5,48 +5,46 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- 統計資訊卡片 - 移到最上方 -->
     <div class="row mb-3">
         <div class="col-md-4">
-            <div class="card border-primary">
+            <div class="card border-primary shadow-sm">
                 <div class="card-body text-center">
                     <i class="bi bi-clipboard-data fs-3 text-primary"></i>
                     <h6 class="text-muted mt-2 mb-1">總交易筆數</h6>
-                    <h2 class="mb-0">{{ transactions.count }}</h2>
+                    <h2 class="mb-0">{{ stats.total }}</h2>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card border-success">
+            <div class="card border-success shadow-sm">
                 <div class="card-body text-center">
                     <i class="bi bi-box-arrow-in-down fs-3 text-success"></i>
                     <h6 class="text-muted mt-2 mb-1">入庫次數</h6>
-                    <h2 class="mb-0 text-success">
-                        {{ transactions|length }}
-                    </h2>
+                    <h2 class="mb-0 text-success">{{ stats.checkin }}</h2>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card border-info">
+            <div class="card border-info shadow-sm">
                 <div class="card-body text-center">
                     <i class="bi bi-arrow-left-right fs-3 text-info"></i>
                     <h6 class="text-muted mt-2 mb-1">調撥次數</h6>
-                    <h2 class="mb-0 text-info">
-                        {{ transactions|length }}
-                    </h2>
+                    <h2 class="mb-0 text-info">{{ stats.transfer }}</h2>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 篩選區域 -->
-    <div class="card mb-3">
-        <div class="card-header">
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header bg-light">
             <h5 class="mb-0"><i class="bi bi-funnel"></i> 篩選條件</h5>
         </div>
         <div class="card-body">
             <div class="row g-3">
+                <div class="col-md-2">
+                    <label for="filter_date" class="form-label">交易日期</label>
+                    <input type="date" class="form-control" id="filter_date">
+                </div>
                 <div class="col-md-2">
                     <label for="filter_type" class="form-label">交易類型</label>
                     <select class="form-select" id="filter_type">
@@ -62,42 +60,36 @@
                 </div>
                 <div class="col-md-2">
                     <label for="filter_from_box" class="form-label">來源容器</label>
-                    <input type="text" class="form-control" id="filter_from_box" placeholder="容器編號">
-                </div>
-                <div class="col-md-2">
-                    <label for="filter_to_box" class="form-label">目標容器</label>
-                    <input type="text" class="form-control" id="filter_to_box" placeholder="容器編號">
+                    <input type="text" class="form-control" id="filter_from_box" placeholder="編號">
                 </div>
                 <div class="col-md-3">
                     <label for="filter_operator" class="form-label">操作人員</label>
-                    <input type="text" class="form-control" id="filter_operator" placeholder="輸入操作人員">
+                    <input type="text" class="form-control" id="filter_operator" placeholder="輸入人員名稱">
                 </div>
             </div>
-            <div class="row g-3 mt-2">
+            <div class="row g-3 mt-1">
                 <div class="col-12">
                     <button type="button" class="btn btn-primary" onclick="applyFilter()">
                         <i class="bi bi-search"></i> 篩選
                     </button>
-                    <button type="button" class="btn btn-secondary" onclick="clearFilter()">
+                    <button type="button" class="btn btn-outline-secondary" onclick="clearFilter()">
                         <i class="bi bi-x-circle"></i> 清除
                     </button>
-                    <span class="text-muted ms-3" id="filter_count"></span>
+                    <span class="text-muted ms-3 small" id="filter_count"></span>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 交易記錄列表 -->
-    <div class="card">
-        <div class="card-header">
+    <div class="card shadow-sm">
+        <div class="card-header bg-white text-dark">
             <h5 class="mb-0"><i class="bi bi-clock-history"></i> 交易歷史記錄</h5>
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover table-sm">
-                    <thead>
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
                         <tr>
-                            <th>交易編號</th>
                             <th>時間</th>
                             <th>交易類型</th>
                             <th>物品</th>
@@ -112,13 +104,14 @@
                     <tbody>
                         {% for trans in transactions %}
                         <tr class="trans-row"
+                            data-date="{{ trans.Timestamp|date:'Y-m-d' }}"
                             data-type="{{ trans.ActionType }}"
                             data-item="{{ trans.SN.ItemName }}"
                             data-from="{{ trans.FromBoxID|default:'' }}"
                             data-to="{{ trans.ToBoxID|default:'' }}"
                             data-operator="{{ trans.Operator|default:'' }}">
-                            <td><strong>{{ trans.TransID }}</strong></td>
-                            <td>{{ trans.Timestamp|date:"Y-m-d H:i:s" }}</td>
+
+                            <td class="text-nowrap">{{ trans.Timestamp|date:"Y-m-d H:i" }}</td>
                             <td>
                                 {% if trans.ActionType == '入庫' %}
                                     <span class="badge bg-success">{{ trans.ActionType }}</span>
@@ -137,31 +130,17 @@
                                 {% endif %}
                             </td>
                             <td><strong class="text-primary">{{ trans.TransQty }}</strong></td>
-                            <td>
-                                {% if trans.FromBoxID %}
-                                    <span class="badge bg-warning text-dark">{{ trans.FromBoxID }}</span>
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if trans.ToBoxID %}
-                                    <span class="badge bg-info text-dark">{{ trans.ToBoxID }}</span>
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <small class="text-muted">
-                                    {{ trans.StockBefore }} → {{ trans.StockAfter }}
-                                </small>
+                            <td>{{ trans.FromBoxID|default:"-" }}</td>
+                            <td>{{ trans.ToBoxID|default:"-" }}</td>
+                            <td class="small text-muted">
+                                {{ trans.StockBefore }} → {{ trans.StockAfter }}
                             </td>
                             <td>{{ trans.Operator|default:"系統" }}</td>
-                            <td>{{ trans.Remark|default:"-" }}</td>
+                            <td class="small text-truncate" style="max-width: 150px;">{{ trans.Remark|default:"-" }}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="10" class="text-center text-muted">暫無交易記錄</td>
+                            <td colspan="9" class="text-center py-4 text-muted">暫無交易記錄</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -172,70 +151,51 @@
 </div>
 
 <script>
-// 篩選功能
 function applyFilter() {
-    const filterType = document.getElementById('filter_type').value.toLowerCase().trim();
-    const filterItem = document.getElementById('filter_item').value.toLowerCase().trim();
-    const filterFromBox = document.getElementById('filter_from_box').value.toLowerCase().trim();
-    const filterToBox = document.getElementById('filter_to_box').value.toLowerCase().trim();
+    const filterDate     = document.getElementById('filter_date').value; // YYYY-MM-DD
+    const filterType     = document.getElementById('filter_type').value;
+    const filterItem     = document.getElementById('filter_item').value.toLowerCase().trim();
+    const filterFromBox  = document.getElementById('filter_from_box').value.toLowerCase().trim();
     const filterOperator = document.getElementById('filter_operator').value.toLowerCase().trim();
-    
+
     const rows = document.querySelectorAll('.trans-row');
     let visibleCount = 0;
-    
+
     rows.forEach(row => {
-        const type = row.dataset.type.toLowerCase();
-        const item = row.dataset.item.toLowerCase();
-        const fromBox = row.dataset.from.toLowerCase();
-        const toBox = row.dataset.to.toLowerCase();
+        const rowDate  = row.dataset.date;
+        const type     = row.dataset.type;
+        const item     = row.dataset.item.toLowerCase();
+        const fromBox  = row.dataset.from.toLowerCase();
+        const toBox    = row.dataset.to.toLowerCase();
         const operator = row.dataset.operator.toLowerCase();
-        
-        const typeMatch = !filterType || type === filterType;
-        const itemMatch = !filterItem || item.includes(filterItem);
-        const fromBoxMatch = !filterFromBox || fromBox.includes(filterFromBox);
-        const toBoxMatch = !filterToBox || toBox.includes(filterToBox);
-        const operatorMatch = !filterOperator || operator.includes(filterOperator);
-        
-        if (typeMatch && itemMatch && fromBoxMatch && toBoxMatch && operatorMatch) {
-            row.style.display = '';
-            visibleCount++;
-        } else {
-            row.style.display = 'none';
-        }
+
+        const match =
+            (!filterDate     || rowDate === filterDate)         &&
+            (!filterType     || type === filterType)            &&
+            (!filterItem     || item.includes(filterItem))      &&
+            (!filterFromBox  || fromBox.includes(filterFromBox) || toBox.includes(filterFromBox)) &&
+            (!filterOperator || operator.includes(filterOperator));
+
+        row.style.display = match ? '' : 'none';
+        if (match) visibleCount++;
     });
-    
-    // 更新計數
-    document.getElementById('filter_count').textContent = `顯示 ${visibleCount} / ${rows.length} 筆`;
+
+    document.getElementById('filter_count').textContent = `顯示 ${visibleCount} / ${rows.length} 筆紀錄`;
 }
 
-// 清除篩選
 function clearFilter() {
-    document.getElementById('filter_type').value = '';
-    document.getElementById('filter_item').value = '';
-    document.getElementById('filter_from_box').value = '';
-    document.getElementById('filter_to_box').value = '';
-    document.getElementById('filter_operator').value = '';
-    
-    const rows = document.querySelectorAll('.trans-row');
-    rows.forEach(row => {
-        row.style.display = '';
+    ['filter_date', 'filter_type', 'filter_item', 'filter_from_box', 'filter_operator'].forEach(id => {
+        document.getElementById(id).value = '';
     });
-    
-    document.getElementById('filter_count').textContent = '';
+    applyFilter();
 }
 
-// 即時篩選
 document.addEventListener('DOMContentLoaded', function() {
-    const filterInputs = ['filter_type', 'filter_item', 'filter_from_box', 'filter_to_box', 'filter_operator'];
-    filterInputs.forEach(id => {
-        const element = document.getElementById(id);
-        if (element) {
-            element.addEventListener('input', applyFilter);
-            if (element.tagName === 'SELECT') {
-                element.addEventListener('change', applyFilter);
-            }
-        }
+    const inputs = ['filter_date', 'filter_item', 'filter_from_box', 'filter_operator'];
+    inputs.forEach(id => {
+        document.getElementById(id).addEventListener('input', applyFilter);
     });
+    document.getElementById('filter_type').addEventListener('change', applyFilter);
 });
 </script>
 {% endblock %}

@@ -8,8 +8,11 @@ urlpatterns = [
     # 容器 CRUD
     path("boxes/", views.box_list, name="box_list"),
     path("boxes/add/", views.box_add, name="box_add"),
+    path("boxes/checkin/", views.box_checkin, name="box_checkin"),
+    path("boxes/toggle-lock/", views.box_toggle_lock, name="box_toggle_lock"),
     path("boxes/<str:box_id>/edit/", views.box_edit, name="box_edit"),
     path("boxes/<str:box_id>/delete/", views.box_delete, name="box_delete"),
+
 
     # 物品 CRUD
     path("items/", views.item_list, name="item_list"),
@@ -24,5 +27,6 @@ urlpatterns = [
     # API
     path('api/box/<str:box_id>/items/', views.get_box_items, name='get_box_items'),
     path('api/recent-transfers/', views.get_recent_transfers, name='get_recent_transfers'),  # 新增
+
 
 ]

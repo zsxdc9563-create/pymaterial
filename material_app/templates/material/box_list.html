@@ -1,497 +1,1082 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>容器列表</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+{% extends 'base.html' %}
 
-        body {
-            font-family: Arial, "Microsoft JhengHei", sans-serif;
-            background-color: #f5f5f5;
-            padding: 20px;
-        }
+{% block title %}容器列表 - 物料管理系統{% endblock %}
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+{% block page_title %}容器列表{% endblock %}
 
-        h1 {
-            color: #333;
-            margin-bottom: 20px;
-            border-bottom: 3px solid #4CAF50;
-            padding-bottom: 10px;
-        }
+{% block extra_css %}
+<style>
+    .btn-add {
+        background-color: #198754;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-add:hover {
+        background-color: #157347;
+        color: white;
+    }
 
-        .header-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
+    .btn-edit {
+        background-color: #fd7e14;
+        color: white;
+        padding: 5px 12px;
+        margin-right: 5px;
+        font-size: 14px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .btn-edit:hover { background-color: #e8590c; }
 
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            text-decoration: none;
-            display: inline-block;
-            transition: background-color 0.3s;
-        }
+    .btn-delete {
+        background-color: #dc3545;
+        color: white;
+        padding: 5px 12px;
+        font-size: 14px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .btn-delete:hover { background-color: #bb2d3b; }
 
-        .btn-primary {
-            background-color: #4CAF50;
-            color: white;
-        }
+    .btn-checkin {
+        background-color: #0d6efd;
+        color: white;
+        padding: 5px 12px;
+        font-size: 14px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-left: 5px;
+    }
+    .btn-checkin:hover { background-color: #0b5ed7; }
 
-        .btn-primary:hover {
-            background-color: #45a049;
-        }
+    .status-badge {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .status-active  { background-color: #d1e7dd; color: #0f5132; }
+    .status-idle    { background-color: #fff3cd; color: #664d03; }
+    .status-closed  { background-color: #e2e3e5; color: #41464b; }
 
-        .btn-secondary {
-            background-color: #2196F3;
-            color: white;
-        }
+    .table-actions { white-space: nowrap; }
 
-        .btn-secondary:hover {
-            background-color: #0b7dda;
-        }
+    /* ===== 鎖定 Button ===== */
+    .btn-lock.locked        { background-color: #dc3545; color: white; border: none; cursor: pointer; }
+    .btn-lock.locked:hover  { background-color: #c82333; }
+    .btn-lock.unlocked      { background-color: #adb5bd; color: white; border: none; cursor: pointer; }
+    .btn-lock.unlocked:hover { background-color: #868e96; }
+    .btn-lock.no-permission { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
 
-        .btn-edit {
-            background-color: #FF9800;
-            color: white;
-            padding: 5px 15px;
-            margin-right: 5px;
-        }
+    /* ===== 篩選區域 ===== */
+    .filter-panel {
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 18px;
+        overflow: hidden;
+    }
+    .filter-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 18px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        cursor: pointer;
+        user-select: none;
+    }
+    .filter-panel-header h6 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: #495057;
+    }
+    .filter-panel-header .toggle-arrow {
+        font-size: 12px;
+        color: #6c757d;
+        transition: transform 0.2s;
+    }
+    .filter-panel-header .toggle-arrow.collapsed { transform: rotate(-90deg); }
 
-        .btn-edit:hover {
-            background-color: #e68900;
-        }
+    .filter-panel-body {
+        padding: 16px 18px 14px;
+    }
+    .filter-panel-body.hidden { display: none; }
 
-        .btn-delete {
-            background-color: #f44336;
-            color: white;
-            padding: 5px 15px;
-        }
+    .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: flex-end;
+    }
+    .filter-group {
+        flex: 1 1 150px;
+        max-width: 220px;
+    }
+    .filter-group label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 5px;
+    }
+    .filter-group input,
+    .filter-group select {
+        width: 100%;
+        padding: 7px 10px;
+        border: 1px solid #ced2d8;
+        border-radius: 5px;
+        font-size: 14px;
+        background: #fff;
+        box-sizing: border-box;
+    }
+    .filter-group input:focus,
+    .filter-group select:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102,126,234,0.18);
+    }
 
-        .btn-delete:hover {
-            background-color: #da190b;
-        }
+    .filter-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 14px;
+        flex-wrap: wrap;
+    }
+    .btn-filter-apply {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        padding: 7px 18px;
+        font-size: 14px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .btn-filter-apply:hover { opacity: 0.88; }
 
-        /* 表格樣式 */
-        .table-container {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
+    .btn-filter-clear {
+        background: #6c757d;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        padding: 7px 16px;
+        font-size: 14px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .btn-filter-clear:hover { background: #5c636a; }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
+    .filter-count-text {
+        font-size: 13px;
+        color: #6c757d;
+        margin-left: 8px;
+    }
+    .filter-count-text strong { color: #667eea; }
 
-        thead {
-            background-color: #4CAF50;
-            color: white;
-        }
+    /* ===== Modal 通用 ===== */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1050;
+        left: 0; top: 0;
+        width: 100%; height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.5);
+    }
+    .modal.show { display: block; }
 
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
+    .modal-content {
+        background-color: #fefefe;
+        margin: 3% auto;
+        padding: 0;
+        border-radius: 10px;
+        width: 90%;
+        max-width: 600px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        animation: slideDown 0.3s ease-out;
+    }
+    .modal-content.modal-lg { max-width: 820px; }
+    .modal-content.modal-sm { max-width: 460px; }
 
-        th {
-            font-weight: bold;
-        }
+    @keyframes slideDown {
+        from { transform: translateY(-50px); opacity: 0; }
+        to   { transform: translateY(0);     opacity: 1; }
+    }
 
-        tbody tr:hover {
-            background-color: #f5f5f5;
-        }
+    .modal-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px 25px;
+        border-radius: 10px 10px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .modal-header.checkin-header  { background: linear-gradient(135deg, #1a73e8 0%, #0f9b58 100%); }
+    .modal-header.lock-header-on  { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); }
+    .modal-header.lock-header-off { background: linear-gradient(135deg, #198754 0%, #157347 100%); }
 
-        .status-badge {
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: bold;
-        }
+    .modal-header h2 { margin: 0; font-size: 1.5rem; font-weight: 600; }
 
-        .status-active {
-            background-color: #4CAF50;
-            color: white;
-        }
+    .close {
+        color: white; font-size: 28px; font-weight: bold;
+        cursor: pointer; line-height: 1; border: none; background: none; padding: 0;
+    }
+    .close:hover { color: #f0f0f0; }
 
-        .status-idle {
-            background-color: #FFC107;
-            color: #333;
-        }
+    .modal-body {
+        padding: 30px;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+    .modal-footer {
+        padding: 20px 30px;
+        background-color: #f8f9fa;
+        border-radius: 0 0 10px 10px;
+        text-align: right;
+        border-top: 1px solid #dee2e6;
+    }
 
-        .status-closed {
-            background-color: #9E9E9E;
-            color: white;
-        }
+    .form-label .required { color: #dc3545; }
+    .form-label .help-text {
+        font-weight: normal; color: #6c757d;
+        font-size: 0.875rem; display: block; margin-top: 2px;
+    }
 
-        .locked-icon {
-            color: #f44336;
-            font-weight: bold;
-        }
+    .btn-cancel { background-color: #6c757d; color: white; margin-right: 10px; }
+    .btn-cancel:hover { background-color: #5c636a; }
 
-        /* 彈出式表單樣式 */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.5);
-        }
+    /* ===== 鎖定確認 Modal ===== */
+    .lock-confirm-box {
+        display: flex; align-items: center; gap: 14px;
+        background: #f8f9fa; border: 1px solid #e9ecef;
+        border-radius: 8px; padding: 14px 18px; margin-bottom: 16px;
+    }
+    .lock-confirm-box .icon-circle {
+        width: 42px; height: 42px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.3rem; flex-shrink: 0;
+    }
+    .lock-confirm-box .icon-circle.red   { background: #fff0f0; color: #dc3545; }
+    .lock-confirm-box .icon-circle.green { background: #eaf7ef; color: #198754; }
+    .lock-confirm-box .info .box-id   { font-weight: 700; font-size: 15px; color: #1e1b4b; }
+    .lock-confirm-box .info .box-desc { font-size: 13px; color: #6c757d; margin-top: 1px; }
 
-        .modal.show {
-            display: block;
-        }
+    .lock-warning {
+        font-size: 13px; color: #856404;
+        background: #fff3cd; border: 1px solid #ffc107;
+        border-radius: 6px; padding: 10px 14px; margin-top: 4px;
+    }
+    .lock-warning i { margin-right: 4px; }
 
-        .modal-content {
-            background-color: #fefefe;
-            margin: 5% auto;
-            padding: 0;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 600px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            animation: slideDown 0.3s ease-out;
-        }
+    .btn-confirm-lock {
+        background-color: #dc3545; color: white; border: none;
+        border-radius: 4px; padding: 8px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .btn-confirm-lock:hover { background-color: #c82333; }
 
-        @keyframes slideDown {
-            from {
-                transform: translateY(-50px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
+    .btn-confirm-unlock {
+        background-color: #198754; color: white; border: none;
+        border-radius: 4px; padding: 8px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .btn-confirm-unlock:hover { background-color: #157347; }
 
-        .modal-header {
-            background-color: #4CAF50;
-            color: white;
-            padding: 20px;
-            border-radius: 8px 8px 0 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+    /* ===== 入庫 Modal ===== */
+    .checkin-target-bar {
+        display: flex; align-items: center; gap: 10px;
+        background: #eef2ff; border: 1px solid #c7d2fe;
+        border-radius: 8px; padding: 10px 16px; margin-bottom: 18px;
+    }
+    .checkin-target-bar i        { font-size: 1.3rem; color: #4f46e5; }
+    .checkin-target-bar .label   { font-size: 13px; color: #6c757d; }
+    .checkin-target-bar .value   { font-weight: 700; font-size: 15px; color: #1e1b4b; }
 
-        .modal-header h2 {
-            margin: 0;
-        }
+    .checkin-search { display: flex; gap: 8px; margin-bottom: 14px; }
+    .checkin-search input {
+        flex: 1; padding: 8px 12px;
+        border: 1px solid #ced2d8; border-radius: 6px; font-size: 14px;
+    }
+    .checkin-search input:focus {
+        outline: none; border-color: #1a73e8;
+        box-shadow: 0 0 0 3px rgba(26,115,232,0.2);
+    }
+    .checkin-search .btn-search {
+        background: #1a73e8; color: #fff; border: none;
+        border-radius: 6px; padding: 8px 18px; cursor: pointer;
+        font-size: 14px; white-space: nowrap;
+    }
+    .checkin-search .btn-search:hover { background: #1558b0; }
 
-        .close {
-            color: white;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            line-height: 1;
-            transition: color 0.3s;
-        }
+    .checkin-table-wrap {
+        border: 1px solid #dee2e6; border-radius: 8px;
+        overflow: hidden; max-height: 300px; overflow-y: auto;
+    }
+    .checkin-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    .checkin-table thead {
+        position: sticky; top: 0; background: #f3f4f6; z-index: 2;
+    }
+    .checkin-table thead th {
+        padding: 10px; text-align: left; font-weight: 600;
+        color: #374151; border-bottom: 2px solid #e5e7eb;
+        white-space: nowrap; font-size: 13px;
+    }
+    .checkin-table tbody tr            { border-bottom: 1px solid #eee; transition: background 0.15s; }
+    .checkin-table tbody tr:last-child  { border-bottom: none; }
+    .checkin-table tbody tr:hover       { background: #f9fafb; }
+    .checkin-table tbody tr.row-selected { background: #dbeafe; }
+    .checkin-table td { padding: 9px 10px; color: #374151; }
 
-        .close:hover {
-            color: #ddd;
-        }
+    .checkin-table .col-check { width: 38px; text-align: center; }
+    .checkin-table .col-check input[type="checkbox"] { width: 17px; height: 17px; cursor: pointer; accent-color: #1a73e8; }
 
-        .modal-body {
-            padding: 30px;
-        }
+    .checkin-table .col-qty { width: 72px; text-align: center; }
+    .checkin-table .col-qty input[type="number"] {
+        width: 56px; padding: 4px; border: 1px solid #d1d5db;
+        border-radius: 5px; text-align: center; font-size: 14px; font-weight: 600;
+    }
+    .checkin-table .col-qty input[type="number"]:focus {
+        outline: none; border-color: #1a73e8;
+        box-shadow: 0 0 0 2px rgba(26,115,232,0.25);
+    }
+    .checkin-table .col-qty input[type="number"]:disabled {
+        background: #e9ecef; color: #6c757d; cursor: not-allowed;
+    }
+    .checkin-table .sn-code { font-weight: 600; color: #1a73e8; font-size: 13px; }
 
-        .form-group {
-            margin-bottom: 20px;
-        }
+    .checkin-empty     { text-align: center; padding: 36px 0; color: #9ca3af; }
+    .checkin-empty i   { font-size: 2.2rem; display: block; margin-bottom: 8px; color: #d1d5db; }
 
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-            color: #555;
-        }
+    .checkin-footer-info {
+        display: flex; justify-content: space-between;
+        align-items: center; margin-top: 12px; font-size: 13px; color: #6b7280;
+    }
+    .checkin-footer-info .selected-count      { font-weight: 600; color: #1a73e8; }
+    .checkin-footer-info .selected-count.zero { color: #9ca3af; }
 
-        .form-group label .required {
-            color: #f44336;
-        }
+    /* ===== Toast 通知 ===== */
+    .toast-container {
+        position: fixed; top: 24px; right: 24px; z-index: 9999;
+        display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+    }
+    .toast-item {
+        background: #198754; color: #fff;
+        padding: 14px 20px; border-radius: 8px;
+        font-size: 14px; font-weight: 500;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+        display: flex; align-items: center; gap: 10px;
+        animation: toastIn 0.3s ease-out;
+        pointer-events: auto;
+        min-width: 260px;
+    }
+    .toast-item.error { background: #dc3545; }
+    .toast-item i { font-size: 1.1rem; flex-shrink: 0; }
+    @keyframes toastIn {
+        from { transform: translateX(60px); opacity: 0; }
+        to   { transform: translateX(0);    opacity: 1; }
+    }
+    @keyframes toastOut {
+        from { transform: translateX(0);    opacity: 1; }
+        to   { transform: translateX(60px); opacity: 0; }
+    }
+    .toast-item.leaving { animation: toastOut 0.3s ease-in forwards; }
+</style>
+{% endblock %}
 
-        .form-group label .help-text {
-            font-weight: normal;
-            color: #888;
-            font-size: 12px;
-            display: block;
-            margin-top: 2px;
-        }
+{% block content %}
 
-        .form-group input[type="text"],
-        .form-group select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }
+<!-- Toast 通知容器 -->
+<div class="toast-container" id="toastContainer"></div>
 
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #4CAF50;
-            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
-        }
+<!-- 頂部按鈕 -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <button class="btn btn-add" onclick="openAddModal()">
+        <i class="bi bi-plus-lg me-2"></i>新增容器
+    </button>
+</div>
 
-        .form-group input[type="checkbox"] {
-            width: auto;
-            margin-right: 8px;
-            cursor: pointer;
-        }
-
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-        }
-
-        .checkbox-group label {
-            margin: 0;
-            cursor: pointer;
-        }
-
-        .modal-footer {
-            padding: 20px 30px;
-            background-color: #f5f5f5;
-            border-radius: 0 0 8px 8px;
-            text-align: right;
-        }
-
-        .modal-footer .btn {
-            margin-left: 10px;
-        }
-
-        .btn-cancel {
-            background-color: #9E9E9E;
-            color: white;
-        }
-
-        .btn-cancel:hover {
-            background-color: #757575;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #999;
-        }
-
-        .empty-state-icon {
-            font-size: 64px;
-            margin-bottom: 20px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>容器列表</h1>
-        
-        <div class="header-actions">
-            <button class="btn btn-primary" onclick="openAddModal()">+ 新增容器</button>
-            <div>
-                <a href="{% url 'material:transaction_transfer' %}" class="btn btn-secondary">調撥管理</a>
-                <a href="{% url 'material:transaction_history' %}" class="btn btn-secondary">交易記錄</a>
-                <a href="{% url 'material:item_list' %}" class="btn btn-secondary">物品列表</a>
+<!-- ===== 篩選面板 ===== -->
+<div class="filter-panel">
+    <div class="filter-panel-header" onclick="toggleFilterPanel()">
+        <h6><i class="bi bi-funnel me-2"></i>篩選條件</h6>
+        <span class="toggle-arrow" id="filterToggleArrow">▼</span>
+    </div>
+    <div class="filter-panel-body" id="filterPanelBody">
+        <div class="filter-row">
+            <div class="filter-group">
+                <label for="filter_boxid">容器編號</label>
+                <input type="text" id="filter_boxid" placeholder="輸入編號關鍵字">
+            </div>
+            <div class="filter-group">
+                <label for="filter_category">類別</label>
+                <select id="filter_category">
+                    <option value="">-- 全部類別 --</option>
+                    <option value="專案">專案</option>
+                    <option value="個人">個人</option>
+                    <option value="倉庫">倉庫</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter_owner">負責人</label>
+                <input type="text" id="filter_owner" placeholder="輸入負責人姓名">
+            </div>
+            <div class="filter-group">
+                <label for="filter_status">狀態</label>
+                <select id="filter_status">
+                    <option value="">-- 全部狀態 --</option>
+                    <option value="使用中">使用中</option>
+                    <option value="空閒">空閒</option>
+                    <option value="結案">結案</option>
+                </select>
             </div>
         </div>
+        <div class="filter-actions">
+            <button class="btn-filter-apply" onclick="applyBoxFilter()">
+                <i class="bi bi-search"></i> 篩選
+            </button>
+            <button class="btn-filter-clear" onclick="clearBoxFilter()">
+                <i class="bi bi-x-circle"></i> 清除
+            </button>
+            <span class="filter-count-text" id="boxFilterCount"></span>
+        </div>
+    </div>
+</div>
 
-        {% if messages %}
-            {% for message in messages %}
-                <div class="message {{ message.tags }}" style="padding: 15px; margin-bottom: 20px; border-radius: 4px; background-color: {% if message.tags == 'success' %}#d4edda{% else %}#f8d7da{% endif %}; color: {% if message.tags == 'success' %}#155724{% else %}#721c24{% endif %};">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
-
-        <div class="table-container">
-            {% if boxes %}
-                <table>
-                    <thead>
-                        <tr>
-                            <th>容器編號</th>
-                            <th>類別</th>
-                            <th>描述</th>
-                            <th>負責人</th>
-                            <th>狀態</th>
-                            <th>鎖定</th>
-                            <th>建立日期</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for box in boxes %}
-                        <tr>
-                            <td><strong>{{ box.BoxID }}</strong></td>
-                            <td>{{ box.Category|default:"—" }}</td>
-                            <td>{{ box.Description|default:"—" }}</td>
-                            <td>{{ box.Owner|default:"—" }}</td>
-                            <td>
-                                {% if box.Status == "使用中" %}
-                                    <span class="status-badge status-active">{{ box.Status }}</span>
-                                {% elif box.Status == "空閒" %}
-                                    <span class="status-badge status-idle">{{ box.Status }}</span>
-                                {% elif box.Status == "結案" %}
-                                    <span class="status-badge status-closed">{{ box.Status }}</span>
-                                {% else %}
-                                    {{ box.Status|default:"—" }}
-                                {% endif %}
-                            </td>
-                            <td>
+<!-- ===== 容器列表 ===== -->
+<div class="card">
+    <div class="card-body">
+        {% if boxes %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>容器編號</th>
+                        <th>類別</th>
+                        <th>描述</th>
+                        <th>負責人</th>
+                        <th>狀態</th>
+                        <th>建立日期</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for box in boxes %}
+                    <tr class="box-row"
+                        data-boxid="{{ box.BoxID }}"
+                        data-category="{{ box.Category|default:'' }}"
+                        data-owner="{{ box.Owner|default:'' }}"
+                        data-status="{{ box.Status|default:'' }}">
+                        <td><strong>{{ box.BoxID }}</strong></td>
+                        <td>{{ box.Category|default:"—" }}</td>
+                        <td>{{ box.Description|default:"—" }}</td>
+                        <td>{{ box.Owner|default:"—" }}</td>
+                        <td>
+                            {% if box.Status == "使用中" %}
+                                <span class="status-badge status-active">{{ box.Status }}</span>
+                            {% elif box.Status == "空閒" %}
+                                <span class="status-badge status-idle">{{ box.Status }}</span>
+                            {% elif box.Status == "結案" %}
+                                <span class="status-badge status-closed">{{ box.Status }}</span>
+                            {% else %}
+                                {{ box.Status|default:"—" }}
+                            {% endif %}
+                        </td>
+                        <td>{{ box.CreateDate|date:"Y-m-d H:i" }}</td>
+                        <td class="table-actions">
+                            <button class="btn btn-sm btn-edit" onclick="openEditModal('{{ box.BoxID }}', '{{ box.Category }}', '{{ box.Description }}', '{{ box.Owner }}', '{{ box.Status }}', {{ box.Locked|lower }})">
+                                <i class="bi bi-pencil"></i> 編輯
+                            </button>
+                            <form method="post" action="{% url 'material:box_delete' box.BoxID %}" style="display:inline;" onsubmit="return confirm('確定要刪除此容器嗎？');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-delete">
+                                    <i class="bi bi-trash"></i> 刪除
+                                </button>
+                            </form>
+                            <a href="{% url 'material:item_list' %}?action=add&default_box={{ box.BoxID }}"
+                                class="btn btn-sm btn-checkin">
+                            <i class="bi bi-box-arrow-in-down"></i> 入庫
+                            </a>
+                            <button class="btn btn-sm btn-lock {% if box.Locked %}locked{% else %}unlocked{% endif %}"
+                                    data-box-id="{{ box.BoxID }}"
+                                    data-box-desc="{{ box.Description|default:'無描述' }}"
+                                    data-locked="{% if box.Locked %}true{% else %}false{% endif %}"
+                                    onclick="openLockModal(this)">
                                 {% if box.Locked %}
-                                    <span class="locked-icon">🔒 是</span>
+                                    <i class="bi bi-lock-fill"></i> 鎖定中
                                 {% else %}
-                                    否
+                                    <i class="bi bi-unlock"></i> 未鎖定
                                 {% endif %}
-                            </td>
-                            <td>{{ box.CreateDate|date:"Y-m-d H:i" }}</td>
-                            <td>
-                                <a href="{% url 'material:box_edit' box.BoxID %}" class="btn btn-edit">編輯</a>
-                                <form method="post" action="{% url 'material:box_delete' box.BoxID %}" style="display: inline;" onsubmit="return confirm('確定要刪除此容器嗎？');">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-delete">刪除</button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <div class="empty-state">
-                    <div class="empty-state-icon">📦</div>
-                    <h3>尚無容器資料</h3>
-                    <p>點擊上方「新增容器」按鈕來建立第一個容器</p>
-                </div>
-            {% endif %}
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-box-seam" style="font-size:4rem;color:#dee2e6;"></i>
+            <h4 class="mt-3 text-muted">尚無容器資料</h4>
+            <p class="text-muted">點擊上方「新增容器」按鈕來建立第一個容器</p>
+        </div>
+        {% endif %}
     </div>
+</div>
 
-    <!-- 新增容器彈出表單 -->
-    <div id="addBoxModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>新增容器</h2>
-                <span class="close" onclick="closeAddModal()">&times;</span>
+
+<!-- ============================================================
+     新增容器 Modal
+     ============================================================ -->
+<div id="addBoxModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2><i class="bi bi-plus-circle me-2"></i>新增容器</h2>
+            <button type="button" class="close" onclick="closeAddModal()">&times;</button>
+        </div>
+        <form method="post" action="{% url 'material:box_add' %}">
+            {% csrf_token %}
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="BoxID" class="form-label">
+                        容器編號 <span class="required">*</span>
+                        <span class="help-text">編號唯一，不可重複</span>
+                    </label>
+                    <input type="text" class="form-control" id="BoxID" name="BoxID" required maxlength="50" placeholder="例如：BOX-001">
+                </div>
+                <div class="mb-3">
+                    <label for="Category" class="form-label">類別<span class="help-text">選擇容器類別</span></label>
+                    <select class="form-select" id="Category" name="Category">
+                        <option value="">請選擇類別</option>
+                        <option value="專案">專案</option>
+                        <option value="個人">個人</option>
+                        <option value="倉庫">倉庫</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="Description" class="form-label">描述<span class="help-text">備註該編號的用途</span></label>
+                    <input type="text" class="form-control" id="Description" name="Description" maxlength="255" placeholder="例如：用於存放辦公室文具">
+                </div>
+                <div class="mb-3">
+                    <label for="Owner" class="form-label">負責人<span class="help-text">負責人姓名</span></label>
+                    <input type="text" class="form-control" id="Owner" name="Owner" maxlength="50" placeholder="例如：張三">
+                </div>
+                <div class="mb-3">
+                    <label for="Status" class="form-label">狀態<span class="help-text">容器當前狀態</span></label>
+                    <select class="form-select" id="Status" name="Status">
+                        <option value="">請選擇狀態</option>
+                        <option value="使用中" selected>使用中</option>
+                        <option value="空閒">空閒</option>
+                        <option value="結案">結案</option>
+                    </select>
+                </div>
+
             </div>
-            <form method="post" action="{% url 'material:box_add' %}">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="BoxID">
-                            容器編號 <span class="required">*</span>
-                            <span class="help-text">編號唯一，不可重複</span>
-                        </label>
-                        <input type="text" id="BoxID" name="BoxID" required maxlength="50" placeholder="例如：BOX-001">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="Category">
-                            類別
-                            <span class="help-text">類別（如：一般物料、維修件）</span>
-                        </label>
-                        <select id="Category" name="Category">
-                            <option value="">請選擇類別</option>
-                            <option value="一般物料">一般物料</option>
-                            <option value="維修件">維修件</option>
-                            <option value="耗材">耗材</option>
-                            <option value="工具">工具</option>
-                            <option value="其他">其他</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="Description">
-                            描述
-                            <span class="help-text">備註該編號的用途</span>
-                        </label>
-                        <input type="text" id="Description" name="Description" maxlength="255" placeholder="例如：用於存放辦公室文具">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="Owner">
-                            負責人
-                            <span class="help-text">負責人姓名</span>
-                        </label>
-                        <input type="text" id="Owner" name="Owner" maxlength="50" placeholder="例如：張三">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="Status">
-                            狀態
-                            <span class="help-text">狀態（使用中、空閒、結案）</span>
-                        </label>
-                        <select id="Status" name="Status">
-                            <option value="">請選擇狀態</option>
-                            <option value="使用中" selected>使用中</option>
-                            <option value="空閒">空閒</option>
-                            <option value="結案">結案</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <div class="checkbox-group">
-                            <input type="checkbox" id="Locked" name="Locked" value="true">
-                            <label for="Locked">
-                                鎖定此容器
-                                <span class="help-text">是否鎖定（鎖定後將無法進行調撥）</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-cancel" onclick="closeAddModal()">取消</button>
-                    <button type="submit" class="btn btn-primary">確認新增</button>
-                </div>
-            </form>
-        </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeAddModal()"><i class="bi bi-x-lg me-1"></i>取消</button>
+                <button type="submit" class="btn btn-success"><i class="bi bi-check-lg me-1"></i>確認新增</button>
+            </div>
+        </form>
     </div>
+</div>
 
-    <script>
-        // 開啟新增容器彈出視窗
-        function openAddModal() {
-            document.getElementById('addBoxModal').classList.add('show');
-            document.body.style.overflow = 'hidden'; // 防止背景滾動
-        }
 
-        // 關閉新增容器彈出視窗
-        function closeAddModal() {
-            document.getElementById('addBoxModal').classList.remove('show');
-            document.body.style.overflow = 'auto'; // 恢復背景滾動
-        }
+<!-- ============================================================
+     編輯容器 Modal
+     ============================================================ -->
+<div id="editBoxModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2><i class="bi bi-pencil-square me-2"></i>編輯容器</h2>
+            <button type="button" class="close" onclick="closeEditModal()">&times;</button>
+        </div>
+        <form method="post" id="editBoxForm">
+            {% csrf_token %}
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="editBoxID" class="form-label">容器編號 <span class="required">*</span><span class="help-text">編號無法修改</span></label>
+                    <input type="text" class="form-control" id="editBoxID" name="BoxID" readonly style="background-color:#e9ecef;">
+                </div>
+                <div class="mb-3">
+                    <label for="editCategory" class="form-label">類別<span class="help-text">選擇容器類別</span></label>
+                    <select class="form-select" id="editCategory" name="Category">
+                        <option value="">請選擇類別</option>
+                        <option value="專案">專案</option>
+                        <option value="個人">個人</option>
+                        <option value="倉庫">倉庫</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="editDescription" class="form-label">描述<span class="help-text">備註該編號的用途</span></label>
+                    <input type="text" class="form-control" id="editDescription" name="Description" maxlength="255">
+                </div>
+                <div class="mb-3">
+                    <label for="editOwner" class="form-label">負責人<span class="help-text">負責人姓名</span></label>
+                    <input type="text" class="form-control" id="editOwner" name="Owner" maxlength="50">
+                </div>
+                <div class="mb-3">
+                    <label for="editStatus" class="form-label">狀態<span class="help-text">容器當前狀態</span></label>
+                    <select class="form-select" id="editStatus" name="Status">
+                        <option value="">請選擇狀態</option>
+                        <option value="使用中">使用中</option>
+                        <option value="空閒">空閒</option>
+                        <option value="結案">結案</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="editLocked" name="Locked" value="true">
+                        <label class="form-check-label" for="editLocked">
+                            <i class="bi bi-lock-fill me-1"></i>鎖定此容器
+                            <span class="help-text">鎖定後將無法進行調撥</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeEditModal()"><i class="bi bi-x-lg me-1"></i>取消</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>儲存變更</button>
+            </div>
+        </form>
+    </div>
+</div>
 
-        // 點擊彈出視窗外部區域時關閉
-        window.onclick = function(event) {
-            const modal = document.getElementById('addBoxModal');
-            if (event.target == modal) {
-                closeAddModal();
-            }
-        }
 
-        // 按 ESC 鍵關閉彈出視窗
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                closeAddModal();
-            }
+<!-- ============================================================
+     鎖定 / 解鎖 確認 Modal
+     ============================================================ -->
+<div id="lockModal" class="modal">
+    <div class="modal-content modal-sm">
+        <div class="modal-header lock-header-on" id="lockModalHeader">
+            <h2><i class="bi bi-lock-fill me-2" id="lockModalIcon"></i><span id="lockModalTitle">鎖定容器</span></h2>
+            <button type="button" class="close" onclick="closeLockModal()">&times;</button>
+        </div>
+        <form method="post" id="lockBoxForm" action="{% url 'material:box_toggle_lock' %}">
+            {% csrf_token %}
+            <input type="hidden" id="lock_BoxID"  name="BoxID"  value="">
+            <input type="hidden" id="lock_Action" name="action" value="">
+            <div class="modal-body">
+                <div class="lock-confirm-box">
+                    <div class="icon-circle red" id="lockIconCircle">
+                        <i class="bi bi-lock-fill" id="lockIconInner"></i>
+                    </div>
+                    <div class="info">
+                        <div class="box-id" id="lock_display_id">—</div>
+                        <div class="box-desc" id="lock_display_desc">—</div>
+                    </div>
+                </div>
+                <p id="lock_confirm_text" style="font-size:14px;color:#495057;margin-bottom:8px;"></p>
+                <div class="lock-warning">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <span id="lock_warning_text"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeLockModal()"><i class="bi bi-x-lg me-1"></i>取消</button>
+                <button type="submit" class="btn btn-confirm-lock" id="lockConfirmBtn">
+                    <i class="bi bi-lock-fill me-1"></i>確認鎖定
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- ============================================================
+     入庫 Modal
+     ============================================================ -->
+<div id="checkinBoxModal" class="modal">
+    <div class="modal-content modal-lg">
+        <div class="modal-header checkin-header">
+            <h2><i class="bi bi-box-arrow-in-down me-2"></i>入庫</h2>
+            <button type="button" class="close" onclick="closeCheckinModal()">&times;</button>
+        </div>
+
+        <!-- action 保留給 fallback，JS 攔截後用 fetch 提交 -->
+        <form id="checkinBoxForm" action="{% url 'material:box_checkin' %}" method="post">
+            {% csrf_token %}
+            <input type="hidden" id="checkin_BoxID" name="BoxID" value="">
+
+            <div class="modal-body">
+                <div class="checkin-target-bar">
+                    <i class="bi bi-box-seam"></i>
+                    <div>
+                        <div class="label">目標容器</div>
+                        <div class="value" id="checkin_target_label">—</div>
+                    </div>
+                </div>
+
+                <div class="checkin-search">
+                    <input type="text" id="checkin_search_input" placeholder="搜尋序號 / 物品名稱 / 規格…" oninput="checkinSearch()">
+                    <button type="button" class="btn-search" onclick="checkinSearch()"><i class="bi bi-search"></i> 搜尋</button>
+                </div>
+
+                <div class="checkin-table-wrap">
+                    <table class="checkin-table">
+                        <thead>
+                            <tr>
+                                <th class="col-check">
+                                    <input type="checkbox" id="checkin_selectAll" onchange="checkinToggleAll(this)" style="width:17px;height:17px;accent-color:#1a73e8;cursor:pointer;">
+                                </th>
+                                <th>序號</th>
+                                <th>物品名稱</th>
+                                <th>規格</th>
+                                <th>現有數量</th>
+                                <th class="col-qty">入庫數量</th>
+                            </tr>
+                        </thead>
+                        <tbody id="checkin_tbody">
+                            {% for item in items %}
+                            <tr class="checkin-item-row"
+                                data-sn="{{ item.SN }}"
+                                data-name="{{ item.ItemName }}"
+                                data-spec="{{ item.Spec|default:'' }}">
+                                <td class="col-check">
+                                    <input type="checkbox" class="checkin-cb" name="selected_items" value="{{ item.SN }}" onchange="checkinRowToggle(this)">
+                                </td>
+                                <td><span class="sn-code">{{ item.SN }}</span></td>
+                                <td>{{ item.ItemName }}</td>
+                                <td>{{ item.Spec|default:"—" }}</td>
+                                <td style="text-align:center;font-weight:600;">{{ item.Quantity }}</td>
+                                <td class="col-qty">
+                                    <input type="number" class="checkin-qty" name="qty_{{ item.SN }}" value="1" min="1" disabled>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6">
+                                    <div class="checkin-empty">
+                                        <i class="bi bi-inbox"></i>
+                                        目前沒有物品資料
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="checkin-footer-info">
+                    <span>共 <strong>{{ items|length }}</strong> 個物品</span>
+                    <span>已選：<span class="selected-count zero" id="checkin_selected_count">0 項</span></span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeCheckinModal()"><i class="bi bi-x-lg me-1"></i>取消</button>
+                <button type="button" class="btn btn-success" id="checkin_submit_btn" disabled onclick="submitCheckin()">
+                    <i class="bi bi-box-arrow-in-down me-1"></i>確認入庫
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+// ========================================================
+// Toast 通知
+// ========================================================
+function showToast(message, isError) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast-item' + (isError ? ' error' : '');
+    toast.innerHTML = `<i class="bi bi-${isError ? 'exclamation-triangle-fill' : 'check-circle-fill'}"></i>${message}`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('leaving');
+        setTimeout(() => toast.remove(), 320);
+    }, 2200);
+}
+
+// ========================================================
+// 篩選面板 折疊 / 展開
+// ========================================================
+function toggleFilterPanel() {
+    const body  = document.getElementById('filterPanelBody');
+    const arrow = document.getElementById('filterToggleArrow');
+    body.classList.toggle('hidden');
+    arrow.classList.toggle('collapsed', body.classList.contains('hidden'));
+}
+
+// ========================================================
+// 篩選功能（容器列表，client-side）
+// ========================================================
+function applyBoxFilter() {
+    const valBoxID   = document.getElementById('filter_boxid').value.trim().toLowerCase();
+    const valCat     = document.getElementById('filter_category').value.trim();   // select 精確匹配
+    const valOwner   = document.getElementById('filter_owner').value.trim().toLowerCase();
+    const valStatus  = document.getElementById('filter_status').value.trim();     // select 精確匹配
+
+    const rows = document.querySelectorAll('.box-row');
+    let visible = 0;
+
+    rows.forEach(row => {
+        const boxid   = (row.dataset.boxid   || '').toLowerCase();
+        const cat     = row.dataset.category || '';
+        const owner   = (row.dataset.owner   || '').toLowerCase();
+        const status  = row.dataset.status   || '';
+
+        const match =
+            (!valBoxID  || boxid.includes(valBoxID))  &&
+            (!valCat    || cat === valCat)             &&
+            (!valOwner  || owner.includes(valOwner))  &&
+            (!valStatus || status === valStatus);
+
+        row.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+
+    const countEl = document.getElementById('boxFilterCount');
+    countEl.innerHTML = `顯示 <strong>${visible}</strong> / ${rows.length} 筆`;
+}
+
+function clearBoxFilter() {
+    document.getElementById('filter_boxid').value    = '';
+    document.getElementById('filter_category').value = '';
+    document.getElementById('filter_owner').value    = '';
+    document.getElementById('filter_status').value   = '';
+
+    document.querySelectorAll('.box-row').forEach(r => r.style.display = '');
+    document.getElementById('boxFilterCount').innerHTML = '';
+}
+
+// 即時篩選 — 輸入時自動觸發
+document.addEventListener('DOMContentLoaded', function() {
+    ['filter_boxid','filter_owner'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', applyBoxFilter);
+    });
+    ['filter_category','filter_status'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', applyBoxFilter);
+    });
+});
+
+// ========================================================
+// 新增容器 Modal
+// ========================================================
+function openAddModal() {
+    document.getElementById('addBoxModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+function closeAddModal() {
+    document.getElementById('addBoxModal').classList.remove('show');
+    document.body.style.overflow = 'auto';
+    document.querySelector('#addBoxModal form').reset();
+}
+
+// ========================================================
+// 編輯容器 Modal
+// ========================================================
+function openEditModal(boxId, category, description, owner, status, locked) {
+    document.getElementById('editBoxForm').action    = `/material/boxes/${boxId}/edit/`;
+    document.getElementById('editBoxID').value       = boxId;
+    document.getElementById('editCategory').value    = category   || '';
+    document.getElementById('editDescription').value = description || '';
+    document.getElementById('editOwner').value       = owner      || '';
+    document.getElementById('editStatus').value      = status     || '';
+    document.getElementById('editLocked').checked    = locked;
+    document.getElementById('editBoxModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+function closeEditModal() {
+    document.getElementById('editBoxModal').classList.remove('show');
+    document.body.style.overflow = 'auto';
+}
+
+// ========================================================
+// 鎖定 / 解鎖 Modal
+// ========================================================
+function openLockModal(btn) {
+    const boxId    = btn.dataset.boxId;
+    const boxDesc  = btn.dataset.boxDesc;
+    const isLocked = btn.dataset.locked === 'true';
+
+    document.getElementById('lock_BoxID').value  = boxId;
+    document.getElementById('lock_Action').value = isLocked ? 'unlock' : 'lock';
+    document.getElementById('lock_display_id').textContent   = boxId;
+    document.getElementById('lock_display_desc').textContent = boxDesc;
+
+    const header      = document.getElementById('lockModalHeader');
+    const iconCircle  = document.getElementById('lockIconCircle');
+    const iconInner   = document.getElementById('lockIconInner');
+    const title       = document.getElementById('lockModalTitle');
+    const confirmText = document.getElementById('lock_confirm_text');
+    const warningText = document.getElementById('lock_warning_text');
+    const confirmBtn  = document.getElementById('lockConfirmBtn');
+
+    if (isLocked) {
+        header.className     = 'modal-header lock-header-off';
+        iconCircle.className = 'icon-circle green';
+        iconInner.className  = 'bi bi-unlock';
+        title.textContent    = '解鎖容器';
+        confirmText.textContent = `確定要將容器 ${boxId} 解鎖嗎？解鎖後該容器將可以進行調撥操作。`;
+        warningText.textContent = '請確認此操作是否經過授權。';
+        confirmBtn.className = 'btn btn-confirm-unlock';
+        confirmBtn.innerHTML = '<i class="bi bi-unlock me-1"></i>確認解鎖';
+    } else {
+        header.className     = 'modal-header lock-header-on';
+        iconCircle.className = 'icon-circle red';
+        iconInner.className  = 'bi bi-lock-fill';
+        title.textContent    = '鎖定容器';
+        confirmText.textContent = `確定要將容器 ${boxId} 鎖定嗎？鎖定後該容器將無法進行調撥操作。`;
+        warningText.textContent = '鎖定後，調撥功能將被禁止，請在鎖定前確認。';
+        confirmBtn.className = 'btn btn-confirm-lock';
+        confirmBtn.innerHTML = '<i class="bi bi-lock-fill me-1"></i>確認鎖定';
+    }
+
+    document.getElementById('lockModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+function closeLockModal() {
+    document.getElementById('lockModal').classList.remove('show');
+    document.body.style.overflow = 'auto';
+}
+
+// ========================================================
+// 入庫 Modal + AJAX 提交 → 轉頁到物品列表
+// ========================================================
+function openCheckinModal(boxId) {
+    document.getElementById('checkin_BoxID').value              = boxId;
+    document.getElementById('checkin_target_label').textContent = boxId;
+    document.getElementById('checkin_search_input').value       = '';
+
+    document.querySelectorAll('.checkin-item-row').forEach(row => {
+        row.classList.remove('row-selected');
+        row.style.display = '';
+        row.querySelector('.checkin-cb').checked   = false;
+        row.querySelector('.checkin-qty').disabled = true;
+        row.querySelector('.checkin-qty').value    = 1;
+    });
+    document.getElementById('checkin_selectAll').checked = false;
+    updateCheckinCount();
+
+    document.getElementById('checkinBoxModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+function closeCheckinModal() {
+    document.getElementById('checkinBoxModal').classList.remove('show');
+    document.body.style.overflow = 'auto';
+}
+
+function checkinRowToggle(cb) {
+    const row      = cb.closest('tr');
+    const qtyInput = row.querySelector('.checkin-qty');
+    row.classList.toggle('row-selected', cb.checked);
+    qtyInput.disabled = !cb.checked;
+    if (!cb.checked) qtyInput.value = 1;
+
+    const all  = document.querySelectorAll('.checkin-cb');
+    const done = document.querySelectorAll('.checkin-cb:checked');
+    document.getElementById('checkin_selectAll').checked = (all.length > 0 && all.length === done.length);
+    updateCheckinCount();
+}
+
+function checkinToggleAll(master) {
+    document.querySelectorAll('.checkin-item-row').forEach(row => {
+        if (row.style.display === 'none') return;   // 隱藏中的不動
+        const cb  = row.querySelector('.checkin-cb');
+        const qty = row.querySelector('.checkin-qty');
+        cb.checked   = master.checked;
+        qty.disabled = !master.checked;
+        if (!master.checked) qty.value = 1;
+        row.classList.toggle('row-selected', master.checked);
+    });
+    updateCheckinCount();
+}
+
+function updateCheckinCount() {
+    const count = document.querySelectorAll('.checkin-cb:checked').length;
+    const el    = document.getElementById('checkin_selected_count');
+    el.textContent = count + ' 項';
+    el.classList.toggle('zero', count === 0);
+    document.getElementById('checkin_submit_btn').disabled = (count === 0);
+}
+
+function checkinSearch() {
+    const keyword = document.getElementById('checkin_search_input').value.trim().toLowerCase();
+    document.querySelectorAll('.checkin-item-row').forEach(row => {
+        const match = !keyword ||
+            (row.dataset.sn   || '').toLowerCase().includes(keyword) ||
+            (row.dataset.name || '').toLowerCase().includes(keyword) ||
+            (row.dataset.spec || '').toLowerCase().includes(keyword);
+        row.style.display = match ? '' : 'none';
+    });
+}
+
+/**
+ * 確認入庫 — 用 fetch 提交表單，成功後顯示 Toast 並轉到物品列表
+ */
+async function submitCheckin() {
+    const btn  = document.getElementById('checkin_submit_btn');
+    const form = document.getElementById('checkinBoxForm');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>提交中…';
+
+    try {
+        const formData = new FormData(form);
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body:   formData
         });
-    </script>
-</body>
-</html>
+
+        if (response.ok || response.redirected) {
+            // 成功 → 先秀 Toast，隨後跳轉到物品列表
+            showToast('入庫成功！正在跳轉至物品列表…');
+            closeCheckinModal();
+            // 延遲 1.2s 讓 Toast 露臉後跳轉
+            setTimeout(() => {
+                window.location.href = '/material/items/';
+            }, 1200);
+        } else {
+            // 伺務器傳回錯誤 (4xx / 5xx)
+            showToast('入庫失敗，請再試一次。', true);
+            resetCheckinBtn(btn);
+        }
+    } catch (err) {
+        console.error('checkin fetch error', err);
+        showToast('網路錯誤，請檢查連接後再試。', true);
+        resetCheckinBtn(btn);
+    }
+}
+
+function resetCheckinBtn(btn) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-box-arrow-in-down me-1"></i>確認入庫';
+}
+
+// ========================================================
+// 點擊外部遮蔽 / ESC 關閉
+// ========================================================
+window.onclick = function(event) {
+    if (event.target === document.getElementById('addBoxModal'))      closeAddModal();
+    if (event.target === document.getElementById('editBoxModal'))     closeEditModal();
+    if (event.target === document.getElementById('lockModal'))        closeLockModal();
+    if (event.target === document.getElementById('checkinBoxModal'))  closeCheckinModal();
+};
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeAddModal();
+        closeEditModal();
+        closeLockModal();
+        closeCheckinModal();
+    }
+});
+</script>
+{% endblock %}
