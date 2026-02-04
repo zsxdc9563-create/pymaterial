@@ -1,40 +1,39 @@
+# material_app/middleware.py
+
+from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils import timezone
+from .models import AuthToken
 
 
-class TokenAuthMiddleware:
-    """
-    Token 認證中間件。
-    流程：
-      1. 每個請求進來，從 cookie 讀出 'auth_token'
-      2. 去資料庫查找對應的 AuthToken
-      3. 檢查是否過期 → 過期就刪除該 token
-      4. 有效的話，將 Employee 物件掛到 request.employee
-      5. 沒有有效 token，設 request.employee = None
-
-    使用方式：
-      - views 裡直接用 request.employee 判斷是否登入
-      - request.employee is None → 未登入
-      - request.employee.EmpID → 打工號
-      - request.employee.Name  → 姓名
-    """
-
-    # 不需要登入的路徑（允許未登入訪問）
-    EXEMPT_PATHS = [
-        '/material/login/',
-        '/material/logout/',
-    ]
+class AuthMiddleware:
+    """只檢查 cookie 中的 token，不查資料庫"""
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        token = request.COOKIES.get('auth_token')
-        request.employee = None  # 預設為空
+        # 不需要驗證的路徑
+        excluded_paths = ['/material/login/',
+                          '/material/logout/',
+                          '/admin/'
+                          ]
 
-        if token:
-            from .models import AuthToken
-            auth = AuthToken.objects.filter(Token=token).select_related('Employee').first()
-            if auth and not auth.is_expired():  # 假設你有檢查過期的 method
-                request.employee = auth.Employee
+        # 跳過不需要驗證的路徑
+        if request.path in excluded_paths:
+            return self.get_response(request)
+
+        # 驗證 token
+        token = request.COOKIES.get('auth_token')
+
+        if not token:
+            print(f"❌ No token found, redirecting to login")
+            return redirect('material:login')
+
+            # ✅ 只要有 token 就放行，不驗證資料庫
+        print(f"✅ Token found in cookie: {token[:20]}...")
+
+        # 不再設定 request.employee（因為不查資料庫）
+        # 如果 base.html 需要使用者資訊，後續再處理
 
         return self.get_response(request)

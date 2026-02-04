@@ -1,26 +1,40 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from django.http import JsonResponse, HttpResponseRedirect
-from .models import MaterialOverview, ItemList, TransactionLog, Employee, AuthToken
-import secrets
+﻿from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse, HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from django.utils import timezone
+from django.contrib import messages
 from datetime import timedelta
-from django.views.decorators.csrf import csrf_exempt  # <--- 重點：補上這一行
-import json  # 處理前端傳來的 JSON 資料也需要這個
-# 匯入你的 Models
-from .models import MaterialOverview, ItemList, TransactionLog, Employee, AuthToken
+import json
+import secrets
+import requests
+import logging
 
+from .models import MaterialItems, MaterialOverview, TransactionLog  # ✅ 正確
+
+logger = logging.getLogger(__name__)
+
+# 外部 API 設定
+EXTERNAL_API_URL = 'http://192.168.0.10:9987/api/auth/login'
+API_TIMEOUT = 10  # 秒
 
 # ==================== 容器 CRUD ====================
 
+# views.py
+
 def box_list(request):
-    """容器列表"""
-    boxes = MaterialOverview.objects.all().order_by('-CreateDate')
-    items = ItemList.objects.all().select_related('BoxID').order_by('SN')
-    return render(request, 'material/box_list.html', {
-        'boxes': boxes,
-        'items': items,
-    })
+    """容器列表頁面"""
+    try:
+        containers = MaterialOverview.objects.all()
+        items = MaterialItems.objects.all()  # ✅ 加這行
+
+        return render(request, 'material/box_list.html', {
+            'boxes': containers,
+            'items': items  # ✅ 加這行
+        })
+    except Exception as e:
+        print(f"❌ Error: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 def box_add(request):
@@ -85,7 +99,7 @@ def box_delete(request, box_id):
     if request.method == 'POST':
         try:
             box = get_object_or_404(MaterialOverview, BoxID=box_id)
-            items_count = ItemList.objects.filter(BoxID=box).count()
+            items_count = MaterialItems.objects.filter(BoxID=box).count()
             if items_count > 0:
                 messages.error(request, f'容器 {box_id} 內還有 {items_count} 個物品，無法刪除！')
                 return redirect('material:box_list')
@@ -144,7 +158,7 @@ def box_checkin(request):
                 qty = int(request.POST.get(f'qty_{sn}', 0))
                 if qty <= 0: continue
 
-                source_item = ItemList.objects.get(SN=sn)
+                source_item = MaterialItems.objects.get(SN=sn)
                 original_box_id = source_item.BoxID.BoxID
                 stock_before = source_item.Quantity
 
@@ -157,11 +171,11 @@ def box_checkin(request):
                     current_item = source_item
                 else:
                     try:
-                        target_item = ItemList.objects.get(SN=sn, BoxID=target_box)
+                        target_item = MaterialItems.objects.get(SN=sn, BoxID=target_box)
                         target_item.Quantity += qty
                         target_item.save()
-                    except ItemList.DoesNotExist:
-                        target_item = ItemList.objects.create(
+                    except MaterialItems.DoesNotExist:
+                        target_item = MaterialItems.objects.create(
                             SN=sn, BoxID=target_box, ItemName=source_item.ItemName,
                             Spec=source_item.Spec, Location=source_item.Location, Quantity=qty
                         )
@@ -195,7 +209,7 @@ def box_checkin(request):
 
 def item_list(request):
     """物品列表"""
-    items = ItemList.objects.all().select_related('BoxID').order_by('SN')
+    items = MaterialItems.objects.all().select_related('BoxID').order_by('SN')
     boxes = MaterialOverview.objects.all().order_by('BoxID')
     return render(request, 'material/item_list.html', {'items': items, 'boxes': boxes})
 
@@ -210,7 +224,7 @@ def item_add(request):
             operator_name = request.employee.Name if request.employee else '系統'
 
             box = get_object_or_404(MaterialOverview, BoxID=box_id)
-            item = ItemList.objects.create(
+            item = MaterialItems.objects.create(
                 SN=sn, BoxID=box, ItemName=request.POST.get('ItemName'),
                 Spec=request.POST.get('Spec') or None,
                 Location=request.POST.get('Location') or None,
@@ -235,7 +249,7 @@ def item_add(request):
 
 def item_edit(request, item_id):
     """編輯物品"""
-    item = get_object_or_404(ItemList, SN=item_id)
+    item = get_object_or_404(MaterialItems, SN=item_id)
     if request.method == 'POST':
         try:
             old_qty = item.Quantity
@@ -264,7 +278,7 @@ def item_delete(request, item_id):
     """刪除物品"""
     if request.method == 'POST':
         try:
-            item = get_object_or_404(ItemList, SN=item_id)
+            item = get_object_or_404(MaterialItems, SN=item_id)
             TransactionLog.objects.create(
                 SN=item, ActionType='出庫', FromBoxID=item.BoxID.BoxID,
                 TransQty=item.Quantity, StockBefore=item.Quantity, StockAfter=0,
@@ -293,16 +307,16 @@ def transaction_transfer(request):
             from_box = get_object_or_404(MaterialOverview, BoxID=from_box_id)
             to_box = get_object_or_404(MaterialOverview, BoxID=to_box_id)
 
-            from_item = ItemList.objects.get(SN=item_sn, BoxID=from_box)
+            from_item = MaterialItems.objects.get(SN=item_sn, BoxID=from_box)
             stock_before = from_item.Quantity
             from_item.Quantity -= quantity
 
             try:
-                to_item = ItemList.objects.get(SN=item_sn, BoxID=to_box)
+                to_item = MaterialItems.objects.get(SN=item_sn, BoxID=to_box)
                 to_item.Quantity += quantity
                 to_item.save()
-            except ItemList.DoesNotExist:
-                to_item = ItemList.objects.create(
+            except MaterialItems.DoesNotExist:
+                to_item = MaterialItems.objects.create(
                     SN=item_sn, BoxID=to_box, ItemName=from_item.ItemName,
                     Spec=from_item.Spec, Location=from_item.Location, Quantity=quantity
                 )
@@ -343,88 +357,85 @@ def transaction_history(request):
 
 @csrf_exempt
 def api_login(request):
-    """GET → 顯示登入頁面 / POST → 驗證並設定 cookie 跳轉"""
-
+    """純外部 API 認證"""
     if request.method == 'GET':
         return render(request, 'material/login.html')
 
     if request.method == 'POST':
-        # 支援 JSON 與 Form-data
         try:
             if request.content_type == 'application/json':
                 data = json.loads(request.body)
             else:
                 data = request.POST
+
             emp_id = data.get('emp_id')
             pw = data.get('password')
-        except:
-            # 若是瀏览器表單提交，用模板渲染錯誤
+
+            if not emp_id or not pw:
+                return render(request, 'material/login.html', {'error_msg': '請輸入工號和密碼'})
+
+        except Exception as e:
+            logger.error(f"Parse error: {str(e)}")
             return render(request, 'material/login.html', {'error_msg': '資料格式錯誤'})
 
+        # 呼叫外部 API
         try:
-            user = Employee.objects.get(EmpID=emp_id)
+            payload = {'emp_id': emp_id, 'password': pw}
 
-            if not user.IsActive:
-                # --- 帳號停用 ---
-                # JSON 請求 → 回傳 JsonResponse
-                if request.content_type == 'application/json':
-                    return JsonResponse({"error": "帳號已停用"}, status=401, json_dumps_params={'ensure_ascii': False})
-                # 瀏浏器表單 → 重新渲染登入頁，帶錯誤訊息
-                return render(request, 'material/login.html', {'error_msg': '帳號已停用'})
+            response = requests.post(EXTERNAL_API_URL, data=payload, timeout=API_TIMEOUT)
 
-            if not user.check_password(pw):
-                # --- 密碼錯誤 ---
-                if request.content_type == 'application/json':
-                    return JsonResponse({"error": "密碼錯誤"}, status=401, json_dumps_params={'ensure_ascii': False})
-                return render(request, 'material/login.html', {'error_msg': '工號或密碼輸入錯誤'})
+            if response.status_code == 200:
+                api_data = response.json()
+                token_from_api = api_data.get('token')
 
-            # --- 驗證通過：發放 Token ---
-            token_val = secrets.token_urlsafe(64)
-            expiry = timezone.now() + timedelta(hours=24)
-            AuthToken.objects.create(Token=token_val, Employee=user, ExpiresAt=expiry)
+                if not token_from_api:
+                    return render(request, 'material/login.html', {'error_msg': '認證服務回應格式錯誤'})
 
-            # JSON 請求（前端 API 調用）→ 直接回傳 token
-            if request.content_type == 'application/json':
-                return JsonResponse({"token": token_val}, status=200)
-
-            # 瀏浏器表單提交 → 設定 cookie，跳轉到主頁
-            response = redirect('material:box_list')
-            response.set_cookie(
-                'auth_token',
-                token_val,
-                expires=expiry,
-                httponly=True,       # JavaScript 無法讀取，防 XSS
-                samesite='Lax',     # CSRF 基本防護
-            )
-            return response
-
-        except Employee.DoesNotExist:
-            if request.content_type == 'application/json':
-                return JsonResponse({"error": "工號不存在"}, status=404, json_dumps_params={'ensure_ascii': False})
-            return render(request, 'material/login.html', {'error_msg': '工號不存在'})
-
-    return JsonResponse({"error": "不支援的請求方法"}, status=405, json_dumps_params={'ensure_ascii': False})
+                # ✅ 獲取使用者資訊
+                user_name = api_data.get('name', emp_id)  # 如果 API 有回傳 name
 
 
+                # ✅ 直接設定 cookie 並跳轉，不查資料庫
+                expiry = timezone.now() + timedelta(hours=24)
+
+                response_obj = redirect('material:box_list')
+
+                # ✅ 設定 auth_token
+                response_obj.set_cookie(
+                    'auth_token',
+                    token_from_api,
+                    expires=expiry,
+                    httponly=True,
+                    samesite='Lax',
+                )
+                return response_obj
+
+            elif response.status_code == 401:
+                return render(request, 'material/login.html', {'error_msg': '帳號或密碼錯誤'})
+
+            else:
+                return render(request, 'material/login.html', {'error_msg': f'認證服務異常'})
+
+        except Exception as e:
+            logger.exception(f"Login error: {str(e)}")
+            return render(request, 'material/login.html', {'error_msg': '系統發生錯誤'})
+
+    return JsonResponse({"error": "不支援的請求方法"}, status=405)
 
 
+@require_http_methods(["GET", "POST"])
 def api_logout(request):
-    token = request.COOKIES.get('auth_token')
-    if token:
-        AuthToken.objects.filter(Token=token).delete()
-
-    response = redirect('material:login')  # 改為 material app 內的 name
+    """登出"""
+    response = redirect('material:login')
     response.delete_cookie('auth_token')
     return response
 
 
-
-
 @csrf_exempt
 def api_refresh(request):
-    """POST /api/auth/refresh"""
+    """POST /api/auth/refresh - 刷新 token"""
     token_val = request.headers.get('Authorization', '').replace('Bearer ', '')
-    # 邏輯：找到舊 Token，刪除並發放新的
+
     old_token = AuthToken.objects.filter(Token=token_val).first()
     if old_token:
         new_val = secrets.token_urlsafe(64)
@@ -432,14 +443,17 @@ def api_refresh(request):
         old_token.ExpiresAt = timezone.now() + timedelta(hours=24)
         old_token.save()
         return JsonResponse({"token": new_val})
-    return JsonResponse({"error": "無效的 Token"}, status=401)
+
+    return JsonResponse({"error": "無效的 Token"}, status=401,
+                       json_dumps_params={'ensure_ascii': False})
+
 
 def get_me(request):
-    """GET /api/me"""
-    # 假設 Middleware 已將員工存入 request.employee
+    """GET /api/me - 取得當前登入使用者資訊"""
     emp = getattr(request, 'employee', None)
     if not emp:
-        return JsonResponse({"error": "未登入"}, status=401, json_dumps_params={'ensure_ascii': False})
+        return JsonResponse({"error": "未登入"}, status=401,
+                           json_dumps_params={'ensure_ascii': False})
 
     return JsonResponse({
         "ID": emp.EmpID,
@@ -447,45 +461,15 @@ def get_me(request):
         "DepartmentID": getattr(emp, 'DeptID', 'N/A'),
         "JobGrade": getattr(emp, 'JobGrade', 'N/A'),
         "IDNumber": "********",
-        "Birthday": "1992-05-12", # 範例格式
-        "Gender": "F"
+        "Birthday": emp.Birthday.strftime('%Y-%m-%d') if hasattr(emp, 'Birthday') and emp.Birthday else "N/A",
+        "Gender": getattr(emp, 'Gender', 'N/A')
     }, json_dumps_params={'ensure_ascii': False})
-
-
-# ==================== 用戶 API ====================
-
-def get_me(request):
-    """
-    對應圖片 GET /api/me
-    取得當前登入使用者資訊
-    """
-    # 這裡假設你的 Middleware 已經處理好 request.employee
-    employee = getattr(request, 'employee', None)
-
-    if not employee:
-        return JsonResponse({"error": "未登入或 Token 無效"}, status=401)
-
-    # 回傳圖片中的欄位格式
-    return JsonResponse({
-        "ID": employee.EmpID,
-        "Name": employee.Name,
-        "DepartmentID": employee.DeptID if hasattr(employee, 'DeptID') else "N/A",
-        "JobGrade": employee.JobGrade if hasattr(employee, 'JobGrade') else "N/A",
-        "IDNumber": "********", # 安全考量遮罩
-        "Birthday": "1992-05-12", # 範例格式
-        "Gender": "F"
-    }, status=200)
-
-
-
-
-
 
 
 # ==================== API ====================
 
 def get_box_items(request, box_id):
-    items = ItemList.objects.filter(BoxID_id=box_id)
+    items = MaterialItems.objects.filter(BoxID_id=box_id)
     data = [{'item_id': i.SN, 'item_name': i.ItemName, 'quantity': i.Quantity} for i in items]
     return JsonResponse({'items': data})
 

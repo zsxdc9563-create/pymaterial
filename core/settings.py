@@ -23,9 +23,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-8$a8gze^bc2!f^018cu1h7)#ag@^eo%12bb^yz@40cbkve19bf'
 
 # SECURITY WARNING: don't run with debug turned on in production!
+
+# 開發環境
 DEBUG = True
 
-ALLOWED_HOSTS = []
+
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '192.168.0.22',      # 你的電腦 IP
+    # 如果有其他電腦要連線
+    # 可以繼續加入其他 IP
+]
+
+
+
+# 外部認證 API 設定
+EXTERNAL_AUTH_API_URL = 'http://192.168.0.10:9987/api/auth/login'
+EXTERNAL_AUTH_TIMEOUT = 10  # 秒
 
 
 # Application definition
@@ -41,9 +56,9 @@ INSTALLED_APPS = [
     'rest_framework'
 ]
 
-MIDDLEWARE = [
 
-    'material_app.middleware.TokenAuthMiddleware',
+
+MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -109,6 +124,11 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+
+
+
+
 
 
 # Internationalization

@@ -1,6 +1,6 @@
-# material_app/services/transaction_service.py
+﻿# material_app/services/transaction_service.py
 
-from material_app.models import ItemList, MaterialOverview, TransactionLog
+from material_app.models import MaterialItems, MaterialOverview, MaterialTransaction
 
 
 class TransactionService:
@@ -15,7 +15,7 @@ class TransactionService:
         執行物料調撥（從 from_box 移動到 to_box）
 
         Args:
-            sn: 物品序號 (ItemList.SN)
+            sn: 物品序號 (MaterialItems.SN)
             quantity: 調撥數量
             from_box: 來源容器 BoxID
             to_box: 目標容器 BoxID
@@ -23,11 +23,11 @@ class TransactionService:
             remark: 備註
 
         Returns:
-            建立的 TransactionLog 物件
+            建立的 MaterialTransaction 物件
 
         Raises:
             ValueError: 參數錯誤或庫存不足
-            ItemList.DoesNotExist: 物品不存在
+            MaterialItems.DoesNotExist: 物品不存在
         """
         quantity = int(quantity)
         if quantity <= 0:
@@ -35,8 +35,8 @@ class TransactionService:
 
         # 確認來源容器裡的物品存在
         try:
-            source_item = ItemList.objects.get(SN=sn, BoxID__BoxID=from_box)
-        except ItemList.DoesNotExist:
+            source_item = MaterialItems.objects.get(SN=sn, BoxID__BoxID=from_box)
+        except MaterialItems.DoesNotExist:
             raise ValueError(f"來源容器 {from_box} 裡找不到物品 {sn}")
 
         # 庫存不足檢查
@@ -68,7 +68,7 @@ class TransactionService:
         source_item.save()
 
         # 目標：如果同一 SN 已存在於目標容器就累加，否則新建
-        target_item, created = ItemList.objects.get_or_create(
+        target_item, created = MaterialItems.objects.get_or_create(
             SN=sn,
             BoxID=target_box_obj,
             defaults={
@@ -83,7 +83,7 @@ class TransactionService:
             target_item.save()
 
         # ---- 寫入交易記錄 ----
-        log = TransactionLog.objects.create(
+        log = MaterialTransaction.objects.create(
             SN=source_item,
             ActionType='調撥',
             FromBoxID=from_box,
@@ -112,7 +112,7 @@ class TransactionService:
             remark: 備註
 
         Returns:
-            建立的 TransactionLog 物件
+            建立的 MaterialTransaction 物件
         """
         quantity = int(quantity)
         if quantity <= 0:
@@ -127,7 +127,7 @@ class TransactionService:
             raise ValueError(f"容器 {to_box} 已被鎖定，無法入庫")
 
         # 找或建立物品記錄
-        item, created = ItemList.objects.get_or_create(
+        item, created = MaterialItems.objects.get_or_create(
             SN=sn,
             BoxID=box_obj,
             defaults={
@@ -141,7 +141,7 @@ class TransactionService:
         item.save()
 
         # 寫入交易記錄
-        log = TransactionLog.objects.create(
+        log = MaterialTransaction.objects.create(
             SN=item,
             ActionType='入庫',
             FromBoxID=None,
@@ -170,15 +170,15 @@ class TransactionService:
             remark: 備註
 
         Returns:
-            建立的 TransactionLog 物件
+            建立的 MaterialTransaction 物件
         """
         quantity = int(quantity)
         if quantity <= 0:
             raise ValueError("出庫數量必須大於 0")
 
         try:
-            item = ItemList.objects.get(SN=sn, BoxID__BoxID=from_box)
-        except ItemList.DoesNotExist:
+            item = MaterialItems.objects.get(SN=sn, BoxID__BoxID=from_box)
+        except MaterialItems.DoesNotExist:
             raise ValueError(f"容器 {from_box} 裡找不到物品 {sn}")
 
         if item.Quantity < quantity:
@@ -196,7 +196,7 @@ class TransactionService:
         item.Quantity -= quantity
         item.save()
 
-        log = TransactionLog.objects.create(
+        log = MaterialTransaction.objects.create(
             SN=item,
             ActionType='出庫',
             FromBoxID=from_box,
@@ -218,9 +218,9 @@ class TransactionService:
         取得所有交易記錄（時間降序）
 
         Returns:
-            QuerySet[TransactionLog]
+            QuerySet[MaterialTransaction]
         """
-        return TransactionLog.objects.select_related('SN').order_by('-Timestamp')
+        return MaterialTransaction.objects.select_related('SN').order_by('-Timestamp')
 
     @staticmethod
     def get_transaction_stats():
@@ -230,7 +230,7 @@ class TransactionService:
         Returns:
             dict: { 'total': int, 'checkin': int, 'checkout': int, 'transfer': int }
         """
-        qs = TransactionLog.objects
+        qs = MaterialTransaction.objects
         return {
             'total':    qs.count(),
             'checkin':  qs.filter(ActionType='入庫').count(),

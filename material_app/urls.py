@@ -6,9 +6,12 @@ app_name = 'material'
 
 urlpatterns = [
 
-    # 新增登入頁面路徑
+    # # 認證相關
     path("login/", views.api_login, name="login"), # 假設你的 views 裡叫 login_view
     path('logout/', views.api_logout, name='logout'), # 確保名稱是 logout
+
+
+
 
 
     # 容器 CRUD
