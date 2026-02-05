@@ -13,7 +13,6 @@ urlpatterns = [
 
 
 
-
     # 容器 CRUD
     path("boxes/", views.box_list, name="box_list"),
     path("boxes/add/", views.box_add, name="box_add"),
@@ -36,6 +35,7 @@ urlpatterns = [
     # API
     path('api/box/<str:box_id>/items/', views.get_box_items, name='get_box_items'),
     path('api/recent-transfers/', views.get_recent_transfers, name='get_recent_transfers'),  # 新增
-
+    # API - 獲取使用者列表
+    path('api/users/', views.get_users_list, name='get_users_list'),
 
 ]

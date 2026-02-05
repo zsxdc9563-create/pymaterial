@@ -1,9 +1,5 @@
-
 {% extends 'material/base.html' %}
 {% block title %}容器列表 - 物料管理系統{% endblock %}
-
-
-
 
 {% block page_title %}容器列表{% endblock %}
 
@@ -298,78 +294,6 @@
     }
     .btn-confirm-unlock:hover { background-color: #157347; }
 
-    /* ===== 入庫 Modal ===== */
-    .checkin-target-bar {
-        display: flex; align-items: center; gap: 10px;
-        background: #eef2ff; border: 1px solid #c7d2fe;
-        border-radius: 8px; padding: 10px 16px; margin-bottom: 18px;
-    }
-    .checkin-target-bar i        { font-size: 1.3rem; color: #4f46e5; }
-    .checkin-target-bar .label   { font-size: 13px; color: #6c757d; }
-    .checkin-target-bar .value   { font-weight: 700; font-size: 15px; color: #1e1b4b; }
-
-    .checkin-search { display: flex; gap: 8px; margin-bottom: 14px; }
-    .checkin-search input {
-        flex: 1; padding: 8px 12px;
-        border: 1px solid #ced2d8; border-radius: 6px; font-size: 14px;
-    }
-    .checkin-search input:focus {
-        outline: none; border-color: #1a73e8;
-        box-shadow: 0 0 0 3px rgba(26,115,232,0.2);
-    }
-    .checkin-search .btn-search {
-        background: #1a73e8; color: #fff; border: none;
-        border-radius: 6px; padding: 8px 18px; cursor: pointer;
-        font-size: 14px; white-space: nowrap;
-    }
-    .checkin-search .btn-search:hover { background: #1558b0; }
-
-    .checkin-table-wrap {
-        border: 1px solid #dee2e6; border-radius: 8px;
-        overflow: hidden; max-height: 300px; overflow-y: auto;
-    }
-    .checkin-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-    .checkin-table thead {
-        position: sticky; top: 0; background: #f3f4f6; z-index: 2;
-    }
-    .checkin-table thead th {
-        padding: 10px; text-align: left; font-weight: 600;
-        color: #374151; border-bottom: 2px solid #e5e7eb;
-        white-space: nowrap; font-size: 13px;
-    }
-    .checkin-table tbody tr            { border-bottom: 1px solid #eee; transition: background 0.15s; }
-    .checkin-table tbody tr:last-child  { border-bottom: none; }
-    .checkin-table tbody tr:hover       { background: #f9fafb; }
-    .checkin-table tbody tr.row-selected { background: #dbeafe; }
-    .checkin-table td { padding: 9px 10px; color: #374151; }
-
-    .checkin-table .col-check { width: 38px; text-align: center; }
-    .checkin-table .col-check input[type="checkbox"] { width: 17px; height: 17px; cursor: pointer; accent-color: #1a73e8; }
-
-    .checkin-table .col-qty { width: 72px; text-align: center; }
-    .checkin-table .col-qty input[type="number"] {
-        width: 56px; padding: 4px; border: 1px solid #d1d5db;
-        border-radius: 5px; text-align: center; font-size: 14px; font-weight: 600;
-    }
-    .checkin-table .col-qty input[type="number"]:focus {
-        outline: none; border-color: #1a73e8;
-        box-shadow: 0 0 0 2px rgba(26,115,232,0.25);
-    }
-    .checkin-table .col-qty input[type="number"]:disabled {
-        background: #e9ecef; color: #6c757d; cursor: not-allowed;
-    }
-    .checkin-table .sn-code { font-weight: 600; color: #1a73e8; font-size: 13px; }
-
-    .checkin-empty     { text-align: center; padding: 36px 0; color: #9ca3af; }
-    .checkin-empty i   { font-size: 2.2rem; display: block; margin-bottom: 8px; color: #d1d5db; }
-
-    .checkin-footer-info {
-        display: flex; justify-content: space-between;
-        align-items: center; margin-top: 12px; font-size: 13px; color: #6b7280;
-    }
-    .checkin-footer-info .selected-count      { font-weight: 600; color: #1a73e8; }
-    .checkin-footer-info .selected-count.zero { color: #9ca3af; }
-
     /* ===== Toast 通知 ===== */
     .toast-container {
         position: fixed; top: 24px; right: 24px; z-index: 9999;
@@ -434,7 +358,9 @@
             </div>
             <div class="filter-group">
                 <label for="filter_owner">負責人</label>
-                <input type="text" id="filter_owner" placeholder="輸入負責人姓名">
+                <select id="filter_owner">
+                    <option value="">-- 全部人員 --</option>
+                </select>
             </div>
             <div class="filter-group">
                 <label for="filter_status">狀態</label>
@@ -485,7 +411,7 @@
                         <td><strong>{{ box.BoxID }}</strong></td>
                         <td>{{ box.Category|default:"—" }}</td>
                         <td>{{ box.Description|default:"—" }}</td>
-                        <td>{{ box.Owner|default:"—" }}</td>
+                        <td>{{ box.owner_display }}</td>
                         <td>
                             {% if box.Status == "使用中" %}
                                 <span class="status-badge status-active">{{ box.Status }}</span>
@@ -499,19 +425,22 @@
                         </td>
                         <td>{{ box.CreateDate|date:"Y-m-d H:i" }}</td>
                         <td class="table-actions">
-                            <button class="btn btn-sm btn-edit" onclick="openEditModal('{{ box.BoxID }}', '{{ box.Category }}', '{{ box.Description }}', '{{ box.Owner }}', '{{ box.Status }}', {{ box.Locked|lower }})">
+                            <button class="btn btn-sm btn-edit"
+                                    onclick="openEditModal('{{ box.BoxID }}', '{{ box.Category }}', '{{ box.Description }}', '{{ box.Owner }}', '{{ box.Status }}', {{ box.Locked|lower }})">
                                 <i class="bi bi-pencil"></i> 編輯
                             </button>
+
                             <form method="post" action="{% url 'material:box_delete' box.BoxID %}" style="display:inline;" onsubmit="return confirm('確定要刪除此容器嗎？');">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-sm btn-delete">
                                     <i class="bi bi-trash"></i> 刪除
                                 </button>
                             </form>
-                            <a href="{% url 'material:item_list' %}?action=add&default_box={{ box.BoxID }}"
-                                class="btn btn-sm btn-checkin">
-                            <i class="bi bi-box-arrow-in-down"></i> 入庫
+
+                            <a href="{% url 'material:item_list' %}?action=add&default_box={{ box.BoxID }}" class="btn btn-sm btn-checkin">
+                                <i class="bi bi-box-arrow-in-down"></i> 入庫
                             </a>
+
                             <button class="btn btn-sm btn-lock {% if box.Locked %}locked{% else %}unlocked{% endif %}"
                                     data-box-id="{{ box.BoxID }}"
                                     data-box-desc="{{ box.Description|default:'無描述' }}"
@@ -557,7 +486,7 @@
                         容器編號 <span class="required">*</span>
                         <span class="help-text">編號唯一，不可重複</span>
                     </label>
-                    <input type="text" class="form-control" id="BoxID" name="BoxID" required maxlength="50" placeholder="例如：BOX-001">
+                    <input type="text" class="form-control" id="BoxID" name="BoxID" required maxlength="50" placeholder="例如:BOX-001">
                 </div>
                 <div class="mb-3">
                     <label for="Category" class="form-label">類別<span class="help-text">選擇容器類別</span></label>
@@ -574,7 +503,9 @@
                 </div>
                 <div class="mb-3">
                     <label for="Owner" class="form-label">負責人<span class="help-text">負責人姓名</span></label>
-                    <input type="text" class="form-control" id="Owner" name="Owner" maxlength="50" placeholder="例如：張三">
+                    <select class="form-select" id="Owner" name="Owner">
+                        <option value="">-- 請選擇人員 --</option>
+                    </select>
                 </div>
                 <div class="mb-3">
                     <label for="Status" class="form-label">狀態<span class="help-text">容器當前狀態</span></label>
@@ -585,7 +516,6 @@
                         <option value="結案">結案</option>
                     </select>
                 </div>
-
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-cancel" onclick="closeAddModal()"><i class="bi bi-x-lg me-1"></i>取消</button>
@@ -627,7 +557,9 @@
                 </div>
                 <div class="mb-3">
                     <label for="editOwner" class="form-label">負責人<span class="help-text">負責人姓名</span></label>
-                    <input type="text" class="form-control" id="editOwner" name="Owner" maxlength="50">
+                    <select class="form-select" id="editOwner" name="Owner">
+                        <option value="">-- 請選擇人員 --</option>
+                    </select>
                 </div>
                 <div class="mb-3">
                     <label for="editStatus" class="form-label">狀態<span class="help-text">容器當前狀態</span></label>
@@ -637,15 +569,6 @@
                         <option value="空閒">空閒</option>
                         <option value="結案">結案</option>
                     </select>
-                </div>
-                <div class="mb-3">
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="editLocked" name="Locked" value="true">
-                        <label class="form-check-label" for="editLocked">
-                            <i class="bi bi-lock-fill me-1"></i>鎖定此容器
-                            <span class="help-text">鎖定後將無法進行調撥</span>
-                        </label>
-                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -696,101 +619,101 @@
     </div>
 </div>
 
-
-<!-- ============================================================
-     入庫 Modal
-     ============================================================ -->
-<div id="checkinBoxModal" class="modal">
-    <div class="modal-content modal-lg">
-        <div class="modal-header checkin-header">
-            <h2><i class="bi bi-box-arrow-in-down me-2"></i>入庫</h2>
-            <button type="button" class="close" onclick="closeCheckinModal()">&times;</button>
-        </div>
-
-        <!-- action 保留給 fallback，JS 攔截後用 fetch 提交 -->
-        <form id="checkinBoxForm" action="{% url 'material:box_checkin' %}" method="post">
-            {% csrf_token %}
-            <input type="hidden" id="checkin_BoxID" name="BoxID" value="">
-
-            <div class="modal-body">
-                <div class="checkin-target-bar">
-                    <i class="bi bi-box-seam"></i>
-                    <div>
-                        <div class="label">目標容器</div>
-                        <div class="value" id="checkin_target_label">—</div>
-                    </div>
-                </div>
-
-                <div class="checkin-search">
-                    <input type="text" id="checkin_search_input" placeholder="搜尋序號 / 物品名稱 / 規格…" oninput="checkinSearch()">
-                    <button type="button" class="btn-search" onclick="checkinSearch()"><i class="bi bi-search"></i> 搜尋</button>
-                </div>
-
-                <div class="checkin-table-wrap">
-                    <table class="checkin-table">
-                        <thead>
-                            <tr>
-                                <th class="col-check">
-                                    <input type="checkbox" id="checkin_selectAll" onchange="checkinToggleAll(this)" style="width:17px;height:17px;accent-color:#1a73e8;cursor:pointer;">
-                                </th>
-                                <th>序號</th>
-                                <th>物品名稱</th>
-                                <th>規格</th>
-                                <th>現有數量</th>
-                                <th class="col-qty">入庫數量</th>
-                            </tr>
-                        </thead>
-                        <tbody id="checkin_tbody">
-                            {% for item in items %}
-                            <tr class="checkin-item-row"
-                                data-sn="{{ item.SN }}"
-                                data-name="{{ item.ItemName }}"
-                                data-spec="{{ item.Spec|default:'' }}">
-                                <td class="col-check">
-                                    <input type="checkbox" class="checkin-cb" name="selected_items" value="{{ item.SN }}" onchange="checkinRowToggle(this)">
-                                </td>
-                                <td><span class="sn-code">{{ item.SN }}</span></td>
-                                <td>{{ item.ItemName }}</td>
-                                <td>{{ item.Spec|default:"—" }}</td>
-                                <td style="text-align:center;font-weight:600;">{{ item.Quantity }}</td>
-                                <td class="col-qty">
-                                    <input type="number" class="checkin-qty" name="qty_{{ item.SN }}" value="1" min="1" disabled>
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="6">
-                                    <div class="checkin-empty">
-                                        <i class="bi bi-inbox"></i>
-                                        目前沒有物品資料
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="checkin-footer-info">
-                    <span>共 <strong>{{ items|length }}</strong> 個物品</span>
-                    <span>已選：<span class="selected-count zero" id="checkin_selected_count">0 項</span></span>
-                </div>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-cancel" onclick="closeCheckinModal()"><i class="bi bi-x-lg me-1"></i>取消</button>
-                <button type="button" class="btn btn-success" id="checkin_submit_btn" disabled onclick="submitCheckin()">
-                    <i class="bi bi-box-arrow-in-down me-1"></i>確認入庫
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
 {% endblock %}
-
 
 {% block extra_js %}
 <script>
+// ========================================================
+// 載入使用者列表到下拉選單
+// ========================================================
+async function loadUsersToSelect(selectElement, selectedValue = null) {
+    console.log('🔄 開始載入使用者列表...', {selectElement: selectElement.id, selectedValue});
+
+    try {
+        const response = await fetch('/material/api/users/');
+        console.log('📡 API 回應狀態:', response.status);
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('📦 收到使用者資料:', data);
+
+        if (!data.users || !Array.isArray(data.users)) {
+            console.error('❌ 資料格式錯誤:', data);
+            throw new Error('使用者資料格式錯誤');
+        }
+
+        // 清空現有選項（保留第一個「請選擇」選項）
+        const firstOption = selectElement.options[0];
+        selectElement.innerHTML = '';
+        if (firstOption) {
+            selectElement.appendChild(firstOption);
+        }
+
+        // ✅ 添加所有使用者
+        let addedCount = 0;
+        data.users.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.id;  // ✅ value 是工號
+            option.textContent = `${user.name} (${user.id})`; // ✅ 顯示是 姓名 (工號)
+
+            // 如果有指定選中值，則選中對應選項
+            if (selectedValue && user.id === selectedValue) {
+                option.selected = true;
+            }
+
+            selectElement.appendChild(option);
+            addedCount++;
+        });
+
+        console.log(`✅ 成功載入 ${addedCount} 位使用者到下拉選單 ${selectElement.id}`);
+
+    } catch (error) {
+        console.error('❌ 載入使用者列表失敗:', error);
+        showToast('無法載入使用者列表: ' + error.message, true);
+    }
+}
+
+// ========================================================
+// DOMContentLoaded - 初始化
+// ========================================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ DOMContentLoaded 觸發');
+
+    // ✅ 載入使用者列表到新增 Modal
+    const ownerSelect = document.getElementById('Owner');
+    if (ownerSelect) {
+        console.log('✅ 找到新增 Modal 的負責人下拉選單');
+        loadUsersToSelect(ownerSelect).catch(err => {
+            console.error('❌ 載入新增 Modal 使用者列表失敗:', err);
+        });
+    }
+
+    // ✅ 載入使用者列表到篩選條件
+    const filterOwnerSelect = document.getElementById('filter_owner');
+    if (filterOwnerSelect) {
+        console.log('✅ 找到篩選的負責人下拉選單');
+        loadUsersToSelect(filterOwnerSelect).catch(err => {
+            console.error('❌ 載入篩選使用者列表失敗:', err);
+        });
+    }
+
+    // 篩選欄位即時監聽
+    ['filter_boxid'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', applyBoxFilter);
+    });
+
+    ['filter_category', 'filter_owner', 'filter_status'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', applyBoxFilter);
+    });
+
+    console.log('✅ 初始化完成');
+});
+
 // ========================================================
 // Toast 通知
 // ========================================================
@@ -817,13 +740,13 @@ function toggleFilterPanel() {
 }
 
 // ========================================================
-// 篩選功能（容器列表，client-side）
+// 篩選功能
 // ========================================================
 function applyBoxFilter() {
     const valBoxID   = document.getElementById('filter_boxid').value.trim().toLowerCase();
-    const valCat     = document.getElementById('filter_category').value.trim();   // select 精確匹配
-    const valOwner   = document.getElementById('filter_owner').value.trim().toLowerCase();
-    const valStatus  = document.getElementById('filter_status').value.trim();     // select 精確匹配
+    const valCat     = document.getElementById('filter_category').value.trim();
+    const valOwner   = document.getElementById('filter_owner').value.trim();
+    const valStatus  = document.getElementById('filter_status').value.trim();
 
     const rows = document.querySelectorAll('.box-row');
     let visible = 0;
@@ -831,13 +754,13 @@ function applyBoxFilter() {
     rows.forEach(row => {
         const boxid   = (row.dataset.boxid   || '').toLowerCase();
         const cat     = row.dataset.category || '';
-        const owner   = (row.dataset.owner   || '').toLowerCase();
+        const owner   = row.dataset.owner    || '';
         const status  = row.dataset.status   || '';
 
         const match =
             (!valBoxID  || boxid.includes(valBoxID))  &&
             (!valCat    || cat === valCat)             &&
-            (!valOwner  || owner.includes(valOwner))  &&
+            (!valOwner  || owner === valOwner)        &&
             (!valStatus || status === valStatus);
 
         row.style.display = match ? '' : 'none';
@@ -858,48 +781,68 @@ function clearBoxFilter() {
     document.getElementById('boxFilterCount').innerHTML = '';
 }
 
-// 即時篩選 — 輸入時自動觸發
-document.addEventListener('DOMContentLoaded', function() {
-    ['filter_boxid','filter_owner'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('input', applyBoxFilter);
-    });
-    ['filter_category','filter_status'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('change', applyBoxFilter);
-    });
-});
-
 // ========================================================
 // 新增容器 Modal
 // ========================================================
 function openAddModal() {
-    document.getElementById('addBoxModal').classList.add('show');
-    document.body.style.overflow = 'hidden';
+    console.log('✅ openAddModal 被呼叫');
+    const modal = document.getElementById('addBoxModal');
+    if (modal) {
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+        console.log('✅ Modal 已顯示');
+    } else {
+        console.error('❌ 找不到 addBoxModal');
+    }
 }
+
 function closeAddModal() {
-    document.getElementById('addBoxModal').classList.remove('show');
-    document.body.style.overflow = 'auto';
-    document.querySelector('#addBoxModal form').reset();
+    const modal = document.getElementById('addBoxModal');
+    if (modal) {
+        modal.classList.remove('show');
+        document.body.style.overflow = 'auto';
+        document.querySelector('#addBoxModal form').reset();
+    }
 }
 
 // ========================================================
 // 編輯容器 Modal
 // ========================================================
 function openEditModal(boxId, category, description, owner, status, locked) {
+    console.log('✅ openEditModal 被呼叫', {boxId, category, description, owner, status, locked});
+
+    // 設定表單 action 和基本欄位
     document.getElementById('editBoxForm').action    = `/material/boxes/${boxId}/edit/`;
     document.getElementById('editBoxID').value       = boxId;
     document.getElementById('editCategory').value    = category   || '';
     document.getElementById('editDescription').value = description || '';
-    document.getElementById('editOwner').value       = owner      || '';
     document.getElementById('editStatus').value      = status     || '';
-    document.getElementById('editLocked').checked    = locked;
-    document.getElementById('editBoxModal').classList.add('show');
-    document.body.style.overflow = 'hidden';
+
+    // ✅ 載入使用者列表並選中當前負責人
+    const ownerSelect = document.getElementById('editOwner');
+    loadUsersToSelect(ownerSelect, owner).then(() => {
+        console.log('✅ 使用者列表載入完成，當前選中:', ownerSelect.value);
+    }).catch(err => {
+        console.error('❌ 載入編輯 Modal 使用者列表失敗:', err);
+    });
+
+    // 顯示 Modal
+    const modal = document.getElementById('editBoxModal');
+    if (modal) {
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+        console.log('✅ 編輯 Modal 已顯示');
+    } else {
+        console.error('❌ 找不到 editBoxModal');
+    }
 }
+
 function closeEditModal() {
-    document.getElementById('editBoxModal').classList.remove('show');
-    document.body.style.overflow = 'auto';
+    const modal = document.getElementById('editBoxModal');
+    if (modal) {
+        modal.classList.remove('show');
+        document.body.style.overflow = 'auto';
+    }
 }
 
 // ========================================================
@@ -938,7 +881,7 @@ function openLockModal(btn) {
         iconInner.className  = 'bi bi-lock-fill';
         title.textContent    = '鎖定容器';
         confirmText.textContent = `確定要將容器 ${boxId} 鎖定嗎？鎖定後該容器將無法進行調撥操作。`;
-        warningText.textContent = '鎖定後，調撥功能將被禁止，請在鎖定前確認。';
+        warningText.textContent = '鎖定後,調撥功能將被禁止,請在鎖定前確認。';
         confirmBtn.className = 'btn btn-confirm-lock';
         confirmBtn.innerHTML = '<i class="bi bi-lock-fill me-1"></i>確認鎖定';
     }
@@ -946,139 +889,26 @@ function openLockModal(btn) {
     document.getElementById('lockModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
+
 function closeLockModal() {
     document.getElementById('lockModal').classList.remove('show');
     document.body.style.overflow = 'auto';
 }
 
 // ========================================================
-// 入庫 Modal + AJAX 提交 → 轉頁到物品列表
-// ========================================================
-function openCheckinModal(boxId) {
-    document.getElementById('checkin_BoxID').value              = boxId;
-    document.getElementById('checkin_target_label').textContent = boxId;
-    document.getElementById('checkin_search_input').value       = '';
-
-    document.querySelectorAll('.checkin-item-row').forEach(row => {
-        row.classList.remove('row-selected');
-        row.style.display = '';
-        row.querySelector('.checkin-cb').checked   = false;
-        row.querySelector('.checkin-qty').disabled = true;
-        row.querySelector('.checkin-qty').value    = 1;
-    });
-    document.getElementById('checkin_selectAll').checked = false;
-    updateCheckinCount();
-
-    document.getElementById('checkinBoxModal').classList.add('show');
-    document.body.style.overflow = 'hidden';
-}
-function closeCheckinModal() {
-    document.getElementById('checkinBoxModal').classList.remove('show');
-    document.body.style.overflow = 'auto';
-}
-
-function checkinRowToggle(cb) {
-    const row      = cb.closest('tr');
-    const qtyInput = row.querySelector('.checkin-qty');
-    row.classList.toggle('row-selected', cb.checked);
-    qtyInput.disabled = !cb.checked;
-    if (!cb.checked) qtyInput.value = 1;
-
-    const all  = document.querySelectorAll('.checkin-cb');
-    const done = document.querySelectorAll('.checkin-cb:checked');
-    document.getElementById('checkin_selectAll').checked = (all.length > 0 && all.length === done.length);
-    updateCheckinCount();
-}
-
-function checkinToggleAll(master) {
-    document.querySelectorAll('.checkin-item-row').forEach(row => {
-        if (row.style.display === 'none') return;   // 隱藏中的不動
-        const cb  = row.querySelector('.checkin-cb');
-        const qty = row.querySelector('.checkin-qty');
-        cb.checked   = master.checked;
-        qty.disabled = !master.checked;
-        if (!master.checked) qty.value = 1;
-        row.classList.toggle('row-selected', master.checked);
-    });
-    updateCheckinCount();
-}
-
-function updateCheckinCount() {
-    const count = document.querySelectorAll('.checkin-cb:checked').length;
-    const el    = document.getElementById('checkin_selected_count');
-    el.textContent = count + ' 項';
-    el.classList.toggle('zero', count === 0);
-    document.getElementById('checkin_submit_btn').disabled = (count === 0);
-}
-
-function checkinSearch() {
-    const keyword = document.getElementById('checkin_search_input').value.trim().toLowerCase();
-    document.querySelectorAll('.checkin-item-row').forEach(row => {
-        const match = !keyword ||
-            (row.dataset.sn   || '').toLowerCase().includes(keyword) ||
-            (row.dataset.name || '').toLowerCase().includes(keyword) ||
-            (row.dataset.spec || '').toLowerCase().includes(keyword);
-        row.style.display = match ? '' : 'none';
-    });
-}
-
-/**
- * 確認入庫 — 用 fetch 提交表單，成功後顯示 Toast 並轉到物品列表
- */
-async function submitCheckin() {
-    const btn  = document.getElementById('checkin_submit_btn');
-    const form = document.getElementById('checkinBoxForm');
-
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>提交中…';
-
-    try {
-        const formData = new FormData(form);
-        const response = await fetch(form.action, {
-            method: 'POST',
-            body:   formData
-        });
-
-        if (response.ok || response.redirected) {
-            // 成功 → 先秀 Toast，隨後跳轉到物品列表
-            showToast('入庫成功！正在跳轉至物品列表…');
-            closeCheckinModal();
-            // 延遲 1.2s 讓 Toast 露臉後跳轉
-            setTimeout(() => {
-                window.location.href = '/material/items/';
-            }, 1200);
-        } else {
-            // 伺務器傳回錯誤 (4xx / 5xx)
-            showToast('入庫失敗，請再試一次。', true);
-            resetCheckinBtn(btn);
-        }
-    } catch (err) {
-        console.error('checkin fetch error', err);
-        showToast('網路錯誤，請檢查連接後再試。', true);
-        resetCheckinBtn(btn);
-    }
-}
-
-function resetCheckinBtn(btn) {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="bi bi-box-arrow-in-down me-1"></i>確認入庫';
-}
-
-// ========================================================
 // 點擊外部遮蔽 / ESC 關閉
 // ========================================================
 window.onclick = function(event) {
-    if (event.target === document.getElementById('addBoxModal'))      closeAddModal();
-    if (event.target === document.getElementById('editBoxModal'))     closeEditModal();
-    if (event.target === document.getElementById('lockModal'))        closeLockModal();
-    if (event.target === document.getElementById('checkinBoxModal'))  closeCheckinModal();
+    if (event.target === document.getElementById('addBoxModal'))  closeAddModal();
+    if (event.target === document.getElementById('editBoxModal')) closeEditModal();
+    if (event.target === document.getElementById('lockModal'))    closeLockModal();
 };
+
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeAddModal();
         closeEditModal();
         closeLockModal();
-        closeCheckinModal();
     }
 });
 </script>

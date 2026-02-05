@@ -3,132 +3,377 @@
 {% block title %}物品調撥{% endblock %}
 {% block page_title %}物品調撥{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* ===== Toast 通知 ===== */
+    .toast-container {
+        position: fixed; top: 24px; right: 24px; z-index: 9999;
+        display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+    }
+    .toast-item {
+        background: #198754; color: #fff;
+        padding: 14px 20px; border-radius: 8px;
+        font-size: 14px; font-weight: 500;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+        display: flex; align-items: center; gap: 10px;
+        animation: toastIn 0.3s ease-out;
+        pointer-events: auto;
+        min-width: 260px;
+    }
+    .toast-item.error { background: #dc3545; }
+    .toast-item i { font-size: 1.1rem; flex-shrink: 0; }
+    @keyframes toastIn {
+        from { transform: translateX(60px); opacity: 0; }
+        to   { transform: translateX(0);    opacity: 1; }
+    }
+    @keyframes toastOut {
+        from { transform: translateX(0);    opacity: 1; }
+        to   { transform: translateX(60px); opacity: 0; }
+    }
+    .toast-item.leaving { animation: toastOut 0.3s ease-in forwards; }
+
+    /* ===== 統計卡片 ===== */
+    .stats-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        text-align: center;
+        border-left: 4px solid #667eea;
+    }
+    .stats-card i {
+        font-size: 2rem;
+        color: #667eea;
+        margin-bottom: 10px;
+    }
+    .stats-card h6 {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+    }
+    .stats-card h3 {
+        color: #1e1b4b;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    /* ===== 表單卡片 ===== */
+    .form-card {
+        background: white;
+        border-radius: 10px;
+        padding: 30px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+    }
+    .form-card h5 {
+        color: #1e1b4b;
+        font-weight: 600;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .form-card h5 i {
+        color: #667eea;
+    }
+
+    /* ===== 表單樣式 ===== */
+    .form-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 6px;
+    }
+    .form-label .required {
+        color: #dc3545;
+    }
+    .form-control,
+    .form-select {
+        padding: 10px 14px;
+        border: 1px solid #ced2d8;
+        border-radius: 6px;
+        font-size: 14px;
+    }
+    .form-control:focus,
+    .form-select:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102,126,234,0.18);
+    }
+    .form-text {
+        font-size: 12px;
+        color: #6c757d;
+        margin-top: 4px;
+    }
+
+    /* ===== 按鈕 ===== */
+    .btn-transfer {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 6px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s;
+    }
+    .btn-transfer:hover {
+        opacity: 0.9;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+    }
+    .btn-transfer:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .btn-secondary-custom {
+        background: #6c757d;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        text-decoration: none;
+    }
+    .btn-secondary-custom:hover {
+        background: #5c636a;
+        color: white;
+    }
+
+    /* ===== 最近記錄表格 ===== */
+    .recent-transfers-card {
+        background: white;
+        border-radius: 10px;
+        padding: 30px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .recent-transfers-card h5 {
+        color: #1e1b4b;
+        font-weight: 600;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .recent-transfers-card h5 i {
+        color: #667eea;
+    }
+
+    .table-recent {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+    .table-recent thead {
+        background: #f8f9fa;
+    }
+    .table-recent thead th {
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #495057;
+        border-bottom: 2px solid #dee2e6;
+    }
+    .table-recent tbody tr {
+        border-bottom: 1px solid #eee;
+        transition: background 0.15s;
+    }
+    .table-recent tbody tr:hover {
+        background: #f8f9fa;
+    }
+    .table-recent td {
+        padding: 12px;
+        color: #495057;
+    }
+
+    .badge-from {
+        background: #fff3cd;
+        color: #856404;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .badge-to {
+        background: #d1e7dd;
+        color: #0f5132;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    /* ===== 載入中狀態 ===== */
+    .loading-text {
+        text-align: center;
+        color: #6c757d;
+        padding: 20px;
+        font-size: 14px;
+    }
+    .empty-text {
+        text-align: center;
+        color: #9ca3af;
+        padding: 30px;
+    }
+    .empty-text i {
+        font-size: 2.5rem;
+        display: block;
+        margin-bottom: 10px;
+        color: #d1d5db;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
+
+<!-- Toast 通知容器 -->
+<div class="toast-container" id="toastContainer"></div>
+
 <div class="container-fluid">
-    <!-- 顯示訊息 -->
-    {% if messages %}
-        {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-        {% endfor %}
-    {% endif %}
-
     <!-- 調撥表單 -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0"><i class="bi bi-box-arrow-right"></i> 物品調撥作業</h5>
-        </div>
-        <div class="card-body">
-            <form method="POST" id="transferForm">
-                {% csrf_token %}
+    <div class="form-card">
+        <h5><i class="bi bi-box-arrow-right"></i> 物品調撥作業</h5>
+        <form method="POST" id="transferForm">
+            {% csrf_token %}
 
-                <div class="row mb-3">
-                    <!-- 來源容器 -->
-                    <div class="col-md-6">
-                        <label for="from_box" class="form-label">來源容器 *</label>
-                        <select class="form-select" id="from_box" name="from_box" required>
-                            <option value="">-- 請選擇來源容器 --</option>
-                            {% for box in boxes %}
-                            <option value="{{ box.BoxID }}" {% if box.BoxID == pre_source_box %}selected{% endif %}>
-                                {{ box.BoxID }} - {{ box.Description|default:"無描述" }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <!-- 目標容器 -->
-                    <div class="col-md-6">
-                        <label for="to_box" class="form-label">目標容器 *</label>
-                        <select class="form-select" id="to_box" name="to_box" required>
-                            <option value="">-- 請選擇目標容器 --</option>
-                            {% for box in boxes %}
-                            <option value="{{ box.BoxID }}">
-                                {{ box.BoxID }} - {{ box.Description|default:"無描述" }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
+            <div class="row mb-3">
+                <!-- 來源容器 -->
+                <div class="col-md-6">
+                    <label for="from_box" class="form-label">來源容器 <span class="required">*</span></label>
+                    <select class="form-select" id="from_box" name="from_box" required>
+                        <option value="">-- 請選擇來源容器 --</option>
+                        {% for box in boxes %}
+                        <option value="{{ box.BoxID }}" {% if box.BoxID == pre_source_box %}selected{% endif %}>
+                            {{ box.BoxID }} - {{ box.Description|default:"無描述" }}
+                        </option>
+                        {% endfor %}
+                    </select>
                 </div>
 
-                <div class="row mb-3">
-                    <!-- 選擇物品 -->
-                    <div class="col-md-6">
-                        <label for="item" class="form-label">選擇物品 *</label>
-                        <select class="form-select" id="item" name="item" required disabled>
-                            <option value="">-- 請先選擇來源容器 --</option>
-                        </select>
-                        <small class="text-muted" id="item_info"></small>
-                    </div>
+                <!-- 目標容器 -->
+                <div class="col-md-6">
+                    <label for="to_box" class="form-label">目標容器 <span class="required">*</span></label>
+                    <select class="form-select" id="to_box" name="to_box" required>
+                        <option value="">-- 請選擇目標容器 --</option>
+                        {% for box in boxes %}
+                        <option value="{{ box.BoxID }}">
+                            {{ box.BoxID }} - {{ box.Description|default:"無描述" }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
 
-                    <!-- 調撥數量 -->
-                    <div class="col-md-6">
-                        <label for="quantity" class="form-label">調撥數量 *</label>
-                        <input type="number" class="form-control" id="quantity" name="quantity"
-                               min="1" required disabled>
-                        <small class="text-muted" id="stock_info"></small>
-                    </div>
+            <div class="row mb-3">
+                <!-- 選擇物品 -->
+                <div class="col-md-6">
+                    <label for="item" class="form-label">選擇物品 <span class="required">*</span></label>
+                    <select class="form-select" id="item" name="item" required disabled>
+                        <option value="">-- 請先選擇來源容器 --</option>
+                    </select>
+                    <small class="form-text" id="item_info"></small>
                 </div>
 
-                <div class="row mb-3">
-                    <!-- 操作人員 -->
-                    <div class="col-md-6">
-                        <label for="operator" class="form-label">操作人員 *</label>
-                        <input type="text" class="form-control" id="operator" name="operator"
-                               required placeholder="請輸入操作人員姓名">
-                    </div>
+                <!-- 調撥數量 -->
+                <div class="col-md-6">
+                    <label for="quantity" class="form-label">調撥數量 <span class="required">*</span></label>
+                    <input type="number" class="form-control" id="quantity" name="quantity"
+                           min="1" required disabled>
+                    <small class="form-text" id="stock_info"></small>
+                </div>
+            </div>
 
-                    <!-- 備註 -->
-                    <div class="col-md-6">
-                        <label for="remark" class="form-label">備註</label>
-                        <input type="text" class="form-control" id="remark" name="remark"
-                               placeholder="選填，例如：專案需求調撥">
-                    </div>
+            <div class="row mb-3">
+                <!-- 操作人員 (唯讀) -->
+                <div class="col-md-6">
+                    <label for="operator" class="form-label">操作人員</label>
+                    <input type="text"
+                           class="form-control"
+                           id="operator"
+                           name="operator"
+                           value="{{ current_user_name }} ({{ current_user_id }})"
+                           readonly
+                           style="background-color:#e9ecef; cursor: not-allowed;">
+                    <input type="hidden" name="operator_id" value="{{ current_user_id }}">
                 </div>
 
-                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-box-arrow-right"></i> 執行調撥
-                    </button>
-                    <a href="{% url 'material:transaction_history' %}" class="btn btn-secondary">
-                        <i class="bi bi-clock-history"></i> 查看歷史
-                    </a>
+                <!-- 備註 -->
+                <div class="col-md-6">
+                    <label for="remark" class="form-label">備註</label>
+                    <input type="text" class="form-control" id="remark" name="remark"
+                           placeholder="選填，例如：專案需求調撥">
                 </div>
-            </form>
-        </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                <a href="{% url 'material:transaction_history' %}" class="btn-secondary-custom">
+                    <i class="bi bi-clock-history"></i> 查看歷史
+                </a>
+                <button type="submit" class="btn-transfer">
+                    <i class="bi bi-box-arrow-right"></i> 執行調撥
+                </button>
+            </div>
+        </form>
     </div>
 
     <!-- 最近調撥記錄 -->
-    <div class="card">
-        <div class="card-header">
-            <h5 class="mb-0"><i class="bi bi-clock-history"></i> 最近調撥記錄</h5>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-sm table-hover">
-                    <thead>
-                        <tr>
-                            <th>時間</th>
-                            <th>物品</th>
-                            <th>數量</th>
-                            <th>來源</th>
-                            <th>目標</th>
-                            <th>操作人</th>
-                        </tr>
-                    </thead>
-                    <tbody id="recent_transfers">
-                        <tr>
-                            <td colspan="6" class="text-center">載入中...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+    <div class="recent-transfers-card">
+        <h5><i class="bi bi-clock-history"></i> 最近調撥記錄</h5>
+        <div class="table-responsive">
+            <table class="table-recent">
+                <thead>
+                    <tr>
+                        <th>時間</th>
+                        <th>物品</th>
+                        <th>數量</th>
+                        <th>來源</th>
+                        <th>目標</th>
+                        <th>操作人</th>
+                    </tr>
+                </thead>
+                <tbody id="recent_transfers">
+                    <tr>
+                        <td colspan="6" class="loading-text">載入中...</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
 <script>
+// ========================================================
+// Toast 通知
+// ========================================================
+function showToast(message, isError) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast-item' + (isError ? ' error' : '');
+    toast.innerHTML = `<i class="bi bi-${isError ? 'exclamation-triangle-fill' : 'check-circle-fill'}"></i>${message}`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('leaving');
+        setTimeout(() => toast.remove(), 320);
+    }, 2200);
+}
+
+// ========================================================
+// DOMContentLoaded
+// ========================================================
 document.addEventListener('DOMContentLoaded', function() {
     const fromBoxSelect = document.getElementById('from_box');
     const toBoxSelect = document.getElementById('to_box');
@@ -139,6 +384,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Django view 傳來的預填充值
     const preSN = "{{ pre_sn }}";
+    const preSourceBox = "{{ pre_source_box }}";
 
     // 當選擇來源容器時，載入該容器的物品
     fromBoxSelect.addEventListener('change', function() {
@@ -173,7 +419,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(data => {
                 if (data.error) {
-                    alert('載入物品失敗：' + data.error);
+                    showToast('載入物品失敗：' + data.error, true);
                     itemSelect.innerHTML = '<option value="">-- 載入失敗 --</option>';
                     return;
                 }
@@ -206,7 +452,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('載入物品失敗：' + error.message);
+                showToast('載入物品失敗：' + error.message, true);
                 itemSelect.innerHTML = '<option value="">-- 載入失敗 --</option>';
                 itemSelect.disabled = true;
             });
@@ -215,7 +461,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 當選擇目標容器時，檢查是否與來源相同
     toBoxSelect.addEventListener('change', function() {
         if (this.value && this.value === fromBoxSelect.value) {
-            alert('目標容器不能與來源容器相同！');
+            showToast('目標容器不能與來源容器相同！', true);
             this.value = '';
         }
     });
@@ -251,13 +497,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (quantity > maxQty) {
             e.preventDefault();
-            alert(`調撥數量不能超過庫存數量 ${maxQty}！`);
+            showToast(`調撥數量不能超過庫存數量 ${maxQty}！`, true);
             return false;
         }
 
         if (fromBoxSelect.value === toBoxSelect.value) {
             e.preventDefault();
-            alert('來源容器和目標容器不能相同！');
+            showToast('來源容器和目標容器不能相同！', true);
             return false;
         }
 
@@ -274,11 +520,15 @@ document.addEventListener('DOMContentLoaded', function() {
     loadRecentTransfers();
 
     // ===== 頁面載入時，如果來源容器已經預填充了，觸發 change 來帶動後面的欄位 =====
-    if (fromBoxSelect.value) {
+    if (preSourceBox) {
+        fromBoxSelect.value = preSourceBox;
         fromBoxSelect.dispatchEvent(new Event('change'));
     }
 });
 
+// ========================================================
+// 載入最近調撥記錄
+// ========================================================
 function loadRecentTransfers() {
     fetch('/material/api/recent-transfers/')
         .then(response => response.json())
@@ -290,20 +540,32 @@ function loadRecentTransfers() {
                     <tr>
                         <td>${t.timestamp}</td>
                         <td>${t.item_name}</td>
-                        <td>${t.quantity}</td>
-                        <td><span class="badge bg-warning">${t.from_box}</span></td>
-                        <td><span class="badge bg-success">${t.to_box}</span></td>
+                        <td><strong>${t.quantity}</strong></td>
+                        <td><span class="badge-from">${t.from_box}</span></td>
+                        <td><span class="badge-to">${t.to_box}</span></td>
                         <td>${t.operator}</td>
                     </tr>
                 `).join('');
             } else {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">暫無調撥記錄</td></tr>';
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-text">
+                                <i class="bi bi-inbox"></i>
+                                <p>暫無調撥記錄</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            document.getElementById('recent_transfers').innerHTML =
-                '<tr><td colspan="6" class="text-center text-danger">載入失敗</td></tr>';
+            document.getElementById('recent_transfers').innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-danger">載入失敗</td>
+                </tr>
+            `;
         });
 }
 </script>

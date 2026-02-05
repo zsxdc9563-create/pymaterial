@@ -277,7 +277,7 @@
     }
     .toast-item.leaving { animation: toastOut 0.3s ease-in forwards; }
 
-    /* ===== Modal 通用（對齊 box_list 風格）===== */
+    /* ===== Modal 通用 ===== */
     .modal-custom {
         display: none;
         position: fixed;
@@ -439,16 +439,7 @@
     </button>
 </div>
 
-<!-- 訊息顯示 -->
-{% if messages %}
-    {% for message in messages %}
-    <div class="alert-custom {{ message.tags }}">
-        <i class="bi bi-{% if message.tags == 'success' %}check-circle-fill{% else %}exclamation-triangle-fill{% endif %}"></i>
-        <span>{{ message }}</span>
-        <button class="alert-close" onclick="this.parentElement.remove()"><i class="bi bi-x-lg"></i></button>
-    </div>
-    {% endfor %}
-{% endif %}
+
 
 <!-- ===== 篩選面板 ===== -->
 <div class="filter-panel">
@@ -531,16 +522,16 @@
                                     <i class="bi bi-pencil"></i> 編輯
                                 </button>
                                 <div class="btn-act-sep"></div>
-                                <!-- 刪除（互換後放中間）-->
+                                <!-- 刪除 -->
                                 <button type="button" class="btn-act btn-act-delete"
                                     onclick="openDeleteModal('{{ item.SN }}', '{{ item.ItemName }}')">
                                     <i class="bi bi-trash"></i> 刪除
                                 </button>
                                 <div class="btn-act-sep"></div>
-                                <!-- 調撥（互換後放最後）-->
+                                <!-- 調撥 -->
                                 <a href="{% url 'material:transaction_transfer' %}?sn={{ item.SN }}&source_box={{ item.BoxID.BoxID }}&location={{ item.Location|default:'' }}"
                                    class="btn-act btn-act-transfer">
-                                    <i class="bi bi-arrows-angle-contraact"></i> 調撥
+                                    <i class="bi bi-arrows-angle-contract"></i> 調撥
                                 </a>
                             </div>
                         </td>
@@ -610,7 +601,14 @@
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label">操作人員</label>
-                        <input type="text" class="form-control" id="add_Operator" name="Operator">
+                        <input type="text"
+                               class="form-control"
+                               id="add_Operator"
+                               name="Operator"
+                               value="{{ current_user_name }} ({{ current_user_id }})"
+                               readonly
+                               style="background-color:#e9ecef; cursor: not-allowed;">
+                        <input type="hidden" name="OperatorID" value="{{ current_user_id }}">
                     </div>
                 </div>
             </div>
@@ -670,7 +668,14 @@
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label">操作人員</label>
-                        <input type="text" class="form-control" id="edit_Operator" name="Operator">
+                        <input type="text"
+                               class="form-control"
+                               id="edit_Operator"
+                               name="Operator"
+                               value="{{ current_user_name }} ({{ current_user_id }})"
+                               readonly
+                               style="background-color:#e9ecef; cursor: not-allowed;">
+                        <input type="hidden" name="OperatorID" value="{{ current_user_id }}">
                     </div>
                 </div>
             </div>
@@ -692,7 +697,7 @@
             <h2><i class="bi bi-trash me-2"></i>確認刪除</h2>
             <button type="button" class="modal-close" onclick="closeDeleteModal()">&times;</button>
         </div>
-        <form method="POST" id="deleteItemForm">
+        <form method="POST" id="deleteItemForm" onsubmit="return handleDeleteSubmit(event)">
             {% csrf_token %}
             <div class="modal-custom-body">
                 <div class="delete-confirm-box">
@@ -722,6 +727,24 @@
 
 {% block extra_js %}
 <script>
+// ========================================================
+// 工具函數：取得 Cookie
+// ========================================================
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
 // ========================================================
 // Toast 通知
 // ========================================================
@@ -790,9 +813,26 @@ function clearFilter() {
 }
 
 // ========================================================
-// DOMContentLoaded — 篩選監聽 + 從容器頁入庫跳來時開啟 Modal
+// DOMContentLoaded — 篩選監聽 + 去除重複訊息
 // ========================================================
 document.addEventListener('DOMContentLoaded', function() {
+    // ✅ 移除重複的 Django Messages
+    const alerts = document.querySelectorAll('.alert-custom');
+    const seenMessages = new Set();
+
+    alerts.forEach(alert => {
+        const messageSpan = alert.querySelector('span');
+        if (messageSpan) {
+            const messageText = messageSpan.textContent.trim();
+            if (seenMessages.has(messageText)) {
+                console.log('移除重複訊息:', messageText);
+                alert.remove();
+            } else {
+                seenMessages.add(messageText);
+            }
+        }
+    });
+
     // 篩選欄位即時監聽
     ['filter_sn', 'filter_name', 'filter_location'].forEach(id => {
         const el = document.getElementById(id);
@@ -819,10 +859,18 @@ function openAddModal() {
     document.getElementById('addItemModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
+
 function closeAddModal() {
     document.getElementById('addItemModal').classList.remove('show');
     document.body.style.overflow = 'auto';
     document.getElementById('addItemForm').reset();
+
+    // ✅ 重置操作人員欄位為當前登入使用者
+    const currentUserName = getCookie('user_name');
+    const currentUserId = getCookie('user_emp_id');
+    if (currentUserName && currentUserId) {
+        document.getElementById('add_Operator').value = `${currentUserName} (${currentUserId})`;
+    }
 }
 
 // ========================================================
@@ -837,9 +885,12 @@ function openEditModal(sn, itemName, spec, boxId, location, quantity) {
     document.getElementById('edit_Location').value  = location;
     document.getElementById('edit_Quantity').value  = quantity;
 
+    // ✅ 操作人員欄位自動填入當前登入使用者（已在 HTML 中設定為唯讀）
+
     document.getElementById('editItemModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
+
 function closeEditModal() {
     document.getElementById('editItemModal').classList.remove('show');
     document.body.style.overflow = 'auto';
@@ -856,9 +907,30 @@ function openDeleteModal(sn, itemName) {
     document.getElementById('deleteItemModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
+
 function closeDeleteModal() {
     document.getElementById('deleteItemModal').classList.remove('show');
     document.body.style.overflow = 'auto';
+}
+
+// ========================================================
+// 防止刪除表單重複提交
+// ========================================================
+function handleDeleteSubmit(event) {
+    const form = event.target;
+    const submitBtn = form.querySelector('button[type="submit"]');
+
+    if (submitBtn && submitBtn.disabled) {
+        event.preventDefault();
+        return false;
+    }
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 處理中...';
+    }
+
+    return true;
 }
 
 // ========================================================
@@ -869,6 +941,7 @@ window.onclick = function(event) {
     if (event.target === document.getElementById('editItemModal'))   closeEditModal();
     if (event.target === document.getElementById('deleteItemModal')) closeDeleteModal();
 };
+
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeAddModal();
