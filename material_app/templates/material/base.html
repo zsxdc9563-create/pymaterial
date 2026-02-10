@@ -195,10 +195,12 @@
             <!-- 側邊欄 -->
             <nav class="col-md-2 d-md-block sidebar collapse">
                 <div class="position-sticky pt-0">
-                    <!-- 系統標題 -->
-                    <h5 class="sidebar-header">
-                        <i class="bi bi-boxes me-2"></i>物料管理系統
-                    </h5>
+                    <!-- 系統標題（可點擊返回首頁） -->
+<a href="{% url 'material:index' %}" style="text-decoration: none; color: inherit;">
+    <h5 class="sidebar-header" style="cursor: pointer; transition: background 0.3s;">
+        <i class="bi bi-boxes me-2"></i>物料管理系統
+    </h5>
+</a>
 
 
                     <!-- 使用者資訊 -->
@@ -221,6 +223,19 @@
 
                     <!-- 導航選單 -->
                     <ul class="nav flex-column">
+
+                        <!-- ✅ 新增：首頁連結 -->
+                    <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}"
+                        href="{% url 'material:index' %}">
+                        <i class="bi bi-house-door me-2"></i>系統首頁
+                    </a>
+                    </li>
+
+
+
+
+
                         <li class="nav-item">
                             <a class="nav-link {% if request.resolver_match.url_name == 'box_list' %}active{% endif %}"
                                href="{% url 'material:box_list' %}">

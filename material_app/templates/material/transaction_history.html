@@ -514,6 +514,51 @@
 
 {% block extra_js %}
 <script>
+
+// 在交易記錄頁面 (transaction_history.html)
+
+// Employee: 自動呼叫 /my 端點
+async function loadMyTransactions() {
+    try {
+        const response = await fetch('/material/api/transactions/my/');
+        const data = await response.json();
+
+        if (data.success) {
+            console.log(`載入了 ${data.count} 筆個人記錄`);
+            renderTransactions(data.transactions);
+        }
+    } catch (error) {
+        console.error('載入失敗:', error);
+    }
+}
+
+// Manager/Admin: 可選擇呼叫 /all 端點
+async function loadAllTransactions() {
+    try {
+        const response = await fetch('/material/api/transactions/all/');
+        const data = await response.json();
+
+        if (data.success) {
+            console.log(`載入了 ${data.count} 筆全部記錄`);
+            renderTransactions(data.transactions);
+        } else if (response.status === 403) {
+            alert('權限不足');
+        }
+    } catch (error) {
+        console.error('載入失敗:', error);
+    }
+}
+
+// 根據使用者角色自動選擇
+const userRole = '{{ user_role }}';  // 從 template 取得
+
+if (userRole === 'admin' || userRole === 'manager') {
+    loadAllTransactions();
+} else {
+    loadMyTransactions();
+}
+
+
 // ========================================================
 // 篩選功能
 // ========================================================

@@ -1,0 +1,202 @@
+{% extends 'material/base.html' %}
+{% load static %}
+
+{% block title %}系統首頁{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- 頁首歡迎區 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="mb-2">
+                                <i class="bi bi-house-door me-2"></i>歡迎回來，{{ current_user_name }}
+                            </h2>
+                            <p class="text-muted mb-0">
+                                工號：{{ current_user_id }} 
+                                <span class="badge bg-{{ role_class }} ms-2">{{ role_display }}</span>
+                            </p>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-muted d-block">登入時間</small>
+                            <small class="text-muted" id="current-time"></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 統計數據卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-box-seam text-primary" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0">{{ stats.total_boxes }}</h3>
+                    <p class="text-muted mb-0">總容器數</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-list-ul text-success" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0">{{ stats.total_items }}</h3>
+                    <p class="text-muted mb-0">總物品數</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-lock text-danger" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0">{{ stats.locked_boxes }}</h3>
+                    <p class="text-muted mb-0">已鎖定容器</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-clock-history text-warning" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0">{{ stats.recent_transactions }}</h3>
+                    <p class="text-muted mb-0">
+                        {% if is_employee %}我的{% endif %}交易記錄
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 功能卡片區 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h4 class="mb-3">
+                <i class="bi bi-grid-3x3-gap me-2"></i>系統功能
+            </h4>
+        </div>
+        
+        {% for key, perm in permissions.items %}
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 shadow-sm h-100 {% if perm.disabled %}opacity-50{% endif %}" 
+                 {% if not perm.disabled %}style="cursor: pointer;"{% endif %}
+                 {% if not perm.disabled %}onclick="location.href='{% url perm.url %}'"{% endif %}>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <i class="bi {{ perm.icon }} text-primary" style="font-size: 2rem;"></i>
+                        </div>
+                        <span class="badge bg-{{ perm.permission_class }}">{{ perm.permission }}</span>
+                    </div>
+                    <h5 class="card-title">{{ perm.name }}</h5>
+                    <p class="card-text text-muted small">{{ perm.description }}</p>
+                    
+                    {% if not perm.disabled %}
+                    <div class="text-end">
+                        <i class="bi bi-arrow-right-circle text-primary"></i>
+                    </div>
+                    {% else %}
+                    <div class="text-end">
+                        <i class="bi bi-lock text-muted"></i>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- 快速動作區 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">
+                        <i class="bi bi-lightning me-2"></i>快速動作
+                    </h5>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{% url 'material:box_list' %}" class="btn btn-outline-primary">
+                            <i class="bi bi-search me-1"></i>查看容器
+                        </a>
+                        <a href="{% url 'material:item_list' %}" class="btn btn-outline-success">
+                            <i class="bi bi-search me-1"></i>查看物品
+                        </a>
+                        <a href="{% url 'material:transaction_transfer' %}" class="btn btn-outline-info">
+                            <i class="bi bi-arrow-left-right me-1"></i>快速調撥
+                        </a>
+                        {% if is_admin or is_manager %}
+                        <a href="{% url 'material:box_add' %}" class="btn btn-outline-primary">
+                            <i class="bi bi-plus-circle me-1"></i>新增容器
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'material:transaction_history' %}" class="btn btn-outline-warning">
+                            <i class="bi bi-clock-history me-1"></i>查看記錄
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 權限說明 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm bg-light">
+                <div class="card-body">
+                    <h6 class="mb-2">
+                        <i class="bi bi-info-circle me-2"></i>權限說明
+                    </h6>
+                    <ul class="small mb-0">
+                        {% if is_admin %}
+                        <li>您擁有<strong>管理員</strong>權限，可以執行所有操作</li>
+                        <li>包含：新增/編輯/刪除容器、管理所有物品、查看所有記錄</li>
+                        {% elif is_manager %}
+                        <li>您擁有<strong>主管</strong>權限，可以管理容器和物品</li>
+                        <li>包含：新增/編輯容器、管理物品、查看所有記錄</li>
+                        <li>限制：無法刪除容器</li>
+                        {% else %}
+                        <li>您擁有<strong>員工</strong>權限，可以查看和調撥物品</li>
+                        <li>包含：查看容器和物品、執行物品調撥</li>
+                        <li>限制：無法新增/編輯/刪除容器，僅能查看自己的交易記錄</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 顯示當前時間
+function updateTime() {
+    const now = new Date();
+    const timeStr = now.toLocaleString('zh-TW', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+    document.getElementById('current-time').textContent = timeStr;
+}
+
+// 初始化並每秒更新時間
+updateTime();
+setInterval(updateTime, 1000);
+
+// 卡片hover效果
+document.querySelectorAll('.card[style*="cursor: pointer"]').forEach(card => {
+    card.addEventListener('mouseenter', function() {
+        this.classList.add('shadow');
+    });
+    card.addEventListener('mouseleave', function() {
+        this.classList.remove('shadow');
+    });
+});
+</script>
+{% endblock %}

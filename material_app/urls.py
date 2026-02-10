@@ -6,11 +6,13 @@ app_name = 'material'
 
 urlpatterns = [
 
-    # # 認證相關
-    path("login/", views.api_login, name="login"), # 假設你的 views 裡叫 login_view
-    path('logout/', views.api_logout, name='logout'), # 確保名稱是 logout
+    #首頁
+    path('', views.index, name='index'),
 
 
+    #  認證相關
+    path("login/", views.api_login, name="login"),
+    path('logout/', views.api_logout, name='logout'),
 
 
     # 容器 CRUD
@@ -22,10 +24,17 @@ urlpatterns = [
     path("boxes/<str:box_id>/delete/", views.box_delete, name="box_delete"),
 
 
+    #容器詳細資料
+    path('api/box/<str:box_id>/details/', views.get_box_details, name='box_details_api'),
+
+
     # 物品 CRUD
+
+
     path("items/", views.item_list, name="item_list"),
     path("items/add/", views.item_add, name="item_add"),
-    path("items/<str:item_id>/edit/", views.item_edit, name="item_edit"),
+path('items/<str:sn>/edit/', views.item_edit, name='item_edit'),
+    # path("items/<str:item_id>/edit/", views.item_edit, name="item_edit"),
     path("items/<str:item_id>/delete/", views.item_delete, name="item_delete"),
 
     # 交易
@@ -34,8 +43,11 @@ urlpatterns = [
 
     # API
     path('api/box/<str:box_id>/items/', views.get_box_items, name='get_box_items'),
-    path('api/recent-transfers/', views.get_recent_transfers, name='get_recent_transfers'),  # 新增
-    # API - 獲取使用者列表
+    path('api/box/<str:box_id>/details/', views.get_box_details, name='box_details_api'),
+    path('api/recent-transfers/', views.get_recent_transfers, name='get_recent_transfers'),
     path('api/users/', views.get_users_list, name='get_users_list'),
+
+
+
 
 ]

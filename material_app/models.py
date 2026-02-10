@@ -36,9 +36,11 @@ class MaterialItems(models.Model):
     UpdateTime = models.DateTimeField(auto_now=True, verbose_name="更新時間")
     BoxID = models.ForeignKey(
         MaterialOverview,
+        to_field='BoxID',
         on_delete=models.RESTRICT,
-        db_column='BoxID_id',
-        verbose_name="所屬箱子"
+        db_column='BoxID_id',#
+        verbose_name="所屬箱子",
+        related_name = 'items'  # 建議加上，方便反向查詢
     )
 
     class Meta:
@@ -47,6 +49,11 @@ class MaterialItems(models.Model):
         verbose_name = "物料清單"
         verbose_name_plural = "物料清單"
         unique_together = [['SN', 'BoxID']]
+
+    def __str__(self):
+        return f"{self.SN} - {self.ItemName}"
+
+
 
 
 class TransactionLog(models.Model):

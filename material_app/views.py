@@ -1,17 +1,30 @@
-﻿from django.shortcuts import render, redirect, get_object_or_404
+﻿# material_app/views.py
+
+from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from django.contrib import messages
 from datetime import timedelta
 from django.http import JsonResponse, HttpResponse
-from urllib.parse import unquote  # ✅ 加在最上面
+from urllib.parse import unquote, quote
 import json
 import secrets
 import requests
 import logging
-
+from .decorators import admin_required, manager_or_admin_required
+from django.core.cache import cache
 from .models import MaterialItems, MaterialOverview, TransactionLog
+
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
+from rest_framework import viewsets
+from rest_framework.response import Response
+from .permissions import MaterialBoxPermission, TransactionPermission
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +32,131 @@ logger = logging.getLogger(__name__)
 EXTERNAL_API_URL = 'http://192.168.0.10:9987/api/auth/login'
 API_TIMEOUT = 10  # 秒
 
+
+
+
+
+# ✅ 移除重複的 normalize_role 函數（已在 middleware 中定義）
+
+def index(request):
+    """系統首頁 - 根據角色顯示不同權限"""
+
+    # ✅ 從 middleware 取得使用者資訊
+    user_info = getattr(request, 'user_info', {})
+
+    current_user_id = user_info.get('id') or request.COOKIES.get('user_emp_id', '')
+    current_user_name = user_info.get('username') or unquote(request.COOKIES.get('user_name', '未知使用者'))
+
+    # ✅ 從 middleware 取得的角色
+    api_role = user_info.get('role_display', 'MMS_user')
+
+    # ✅ 角色中文顯示對應
+    role_display_map = {
+        'MMS_admin': '物料系統_超級管理者',
+        'MMS_manager': '物料系統_管理者',
+        'MMS_user': '物料系統_使用者',
+    }
+
+    # ✅ 判斷使用者角色（使用 Django Groups）
+    is_admin = request.user.groups.filter(name='Admin').exists()
+    is_manager = request.user.groups.filter(name='Manager').exists()
+    is_employee = request.user.groups.filter(name='emp').exists()
+
+    # ✅ 設定角色顯示名稱和樣式
+    if is_admin:
+        role_display = role_display_map.get(api_role, '物料系統_超級管理者')
+        role_class = 'danger'
+    elif is_manager:
+        role_display = role_display_map.get(api_role, '物料系統_管理者')
+        role_class = 'warning'
+    else:
+        role_display = role_display_map.get(api_role, '物料系統_使用者')
+        role_class = 'info'
+
+    # 取得統計數據
+    try:
+        total_boxes = MaterialOverview.objects.count()
+        total_items = MaterialItems.objects.count()
+        locked_boxes = MaterialOverview.objects.filter(Locked=True).count()
+        recent_transactions = TransactionLog.objects.count()
+
+        if is_employee:
+            recent_transactions = TransactionLog.objects.filter(Operator=current_user_id).count()
+
+    except Exception as e:
+        logger.error(f"獲取統計數據失敗: {str(e)}")
+        total_boxes = total_items = locked_boxes = recent_transactions = 0
+
+    # 定義功能卡片的權限狀態
+    permissions = {
+        'box_list': {
+            'name': '容器管理',
+            'icon': 'bi-box-seam',
+            'url': 'material:box_list',
+            'description': '查看和管理所有容器',
+            'permission': '完整權限' if (is_admin or is_manager) else '唯讀',
+            'permission_class': 'success' if (is_admin or is_manager) else 'secondary',
+            'disabled': False,
+        },
+        'item_list': {
+            'name': '物品管理',
+            'icon': 'bi-list-ul',
+            'url': 'material:item_list',
+            'description': '查看和管理所有物品',
+            'permission': '完整權限' if (is_admin or is_manager) else '唯讀',
+            'permission_class': 'success' if (is_admin or is_manager) else 'secondary',
+            'disabled': False,
+        },
+        'transaction_transfer': {
+            'name': '物品調撥',
+            'icon': 'bi-arrow-left-right',
+            'url': 'material:transaction_transfer',
+            'description': '在容器之間調撥物品',
+            'permission': '可使用',
+            'permission_class': 'success',
+            'disabled': False,
+        },
+        'box_add': {
+            'name': '新增容器',
+            'icon': 'bi-plus-circle',
+            'url': 'material:box_add',
+            'description': '建立新的容器',
+            'permission': '完整權限' if (is_admin or is_manager) else '權限不足',
+            'permission_class': 'success' if (is_admin or is_manager) else 'danger',
+            'disabled': is_employee,
+        },
+        'transaction_history': {
+            'name': '交易記錄',
+            'icon': 'bi-clock-history',
+            'url': 'material:transaction_history',
+            'description': '查看歷史交易記錄',
+            'permission': '完整權限' if (is_admin or is_manager) else '僅限本人',
+            'permission_class': 'success' if (is_admin or is_manager) else 'warning',
+            'disabled': False,
+        },
+    }
+
+    context = {
+        'current_user_id': current_user_id,
+        'current_user_name': current_user_name,
+        'role_display': role_display,
+        'role_class': role_class,
+        'is_admin': is_admin,
+        'is_manager': is_manager,
+        'is_employee': is_employee,
+        'permissions': permissions,
+        'stats': {
+            'total_boxes': total_boxes,
+            'total_items': total_items,
+            'locked_boxes': locked_boxes,
+            'recent_transactions': recent_transactions,
+        }
+    }
+
+    logger.info(
+        f"📊 首頁載入 - 使用者: {current_user_name} ({current_user_id}), API角色: {api_role}, 顯示: {role_display}")
+
+    return render(request, 'material/index.html', context)
 
 # ==================== 容器 CRUD ====================
 
@@ -28,14 +166,12 @@ def box_list(request):
         containers = MaterialOverview.objects.all()
         items = MaterialItems.objects.all()
 
-        # ✅ 獲取當前使用者資訊
         current_user_id = request.COOKIES.get('user_emp_id', '')
         current_user_name = unquote(request.COOKIES.get('user_name', ''))
 
-        # ✅ 獲取使用者列表並建立對應表
         token = request.COOKIES.get('auth_token')
         users_list = []
-        users_map = {}  # 工號 -> 姓名的對應表
+        users_map = {}
 
         if token:
             try:
@@ -43,17 +179,11 @@ def box_list(request):
                 headers = {'Authorization': f'Bearer {token}'}
                 response = requests.get(user_api_url, headers=headers, timeout=API_TIMEOUT)
 
-                print(f"🔍 API 回應狀態: {response.status_code}")
-
                 if response.status_code == 200:
                     user_data = response.json()
-                    print(f"🔍 API 回應資料類型: {type(user_data)}")
 
                     if isinstance(user_data, list):
-                        print(f"🔍 使用者總數: {len(user_data)}")
-
                         for user in user_data:
-                            # 過濾離職員工
                             is_active = user.get('IsActive')
                             status = user.get('Status') or user.get('status') or ''
 
@@ -69,32 +199,19 @@ def box_list(request):
                                 'display': f"{emp_name} ({emp_id})"
                             })
 
-                            # ✅ 建立工號 -> 姓名的對應
                             users_map[emp_id] = emp_name
-
-                        print(f"✅ 成功載入 {len(users_list)} 位使用者")
-                        print(f"✅ users_map 內容: {users_map}")
 
             except Exception as e:
                 logger.error(f"獲取使用者列表失敗: {str(e)}")
-                print(f"❌ 獲取使用者列表錯誤: {str(e)}")
 
-        # ✅ 為每個容器添加 owner_display 屬性
         for box in containers:
-            print(f"🔍 容器 {box.BoxID} 的 Owner: {box.Owner}")
-
             if box.Owner:
-                # 檢查 Owner 是否在 users_map 中
                 if box.Owner in users_map:
                     box.owner_display = f"{users_map[box.Owner]} ({box.Owner})"
-                    print(f"✅ 找到對應: {box.owner_display}")
                 else:
-                    # 找不到對應，只顯示工號
                     box.owner_display = box.Owner
-                    print(f"⚠️ 找不到工號 {box.Owner} 的對應姓名")
             else:
                 box.owner_display = "未指定"
-                print(f"ℹ️ 容器 {box.BoxID} 沒有負責人")
 
         return render(request, 'material/box_list.html', {
             'boxes': containers,
@@ -105,22 +222,31 @@ def box_list(request):
             'current_user_name': current_user_name,
         })
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
         logger.exception("box_list error")
         return JsonResponse({'error': str(e)}, status=500)
 
 
-
+@manager_or_admin_required
 def box_add(request):
     """新增容器"""
+    # ✅ 權限檢查：只有 Admin 和 Manager 可以新增
+    if not request.user.groups.filter(name__in=['Admin', 'Manager']).exists():
+        messages.error(request, '您沒有權限新增容器')
+        return redirect('material:box_list')
+
+    current_user_id = request.COOKIES.get('user_emp_id', '')
+    current_user_name = unquote(request.COOKIES.get('user_name', '未知使用者'))
+
     if request.method == 'POST':
         try:
             box_id = request.POST.get('BoxID')
             category = request.POST.get('Category', '')
             description = request.POST.get('Description', '')
-            owner = request.POST.get('Owner', '')  # ✅ 工號
             status = request.POST.get('Status', '使用中')
             locked = request.POST.get('Locked') == 'true'
+
+            # ✅ 負責人直接使用當前登入使用者的 ID
+            owner = current_user_id
 
             if MaterialOverview.objects.filter(BoxID=box_id).exists():
                 messages.error(request, f'容器編號 {box_id} 已存在，請使用其他編號')
@@ -130,60 +256,19 @@ def box_add(request):
                 BoxID=box_id,
                 Category=category if category else None,
                 Description=description if description else None,
-                Owner=owner if owner else None,
+                Owner=owner,  # ✅ 使用當前登入使用者
                 Status=status if status else None,
                 Locked=locked
             )
 
-            messages.success(request, f'容器 {box_id} 新增成功！')
+            messages.success(request, f'容器 {box_id} 新增成功！負責人：{current_user_name}')
             return redirect('material:box_list')
 
         except Exception as e:
             messages.error(request, f'新增容器失敗: {str(e)}')
             return redirect('material:box_list')
 
-    # ✅ GET 請求：準備使用者列表和當前使用者資訊
-    current_user_id = request.COOKIES.get('user_emp_id', '')
-    current_user_name = unquote(request.COOKIES.get('user_name', '未知使用者'))
-
-    token = request.COOKIES.get('auth_token')
-    users_list = []
-
-    if token:
-        try:
-            user_api_url = 'http://192.168.0.10:9987/api/users'
-            headers = {'Authorization': f'Bearer {token}'}
-            response = requests.get(user_api_url, headers=headers, timeout=API_TIMEOUT)
-
-            if response.status_code == 200:
-                user_data = response.json()
-                if isinstance(user_data, list):
-                    for user in user_data:
-                        # 過濾離職員工
-                        is_active = user.get('IsActive')
-                        status = user.get('Status') or user.get('status') or ''
-
-                        if is_active == False or '離職' in str(status):
-                            continue
-
-                        emp_id = str(user.get('ID') or user.get('id') or user.get('EmpID', ''))
-                        emp_name = user.get('Name') or user.get('name') or '未知'
-
-                        # ✅ 只添加非當前使用者（當前使用者已在最上方顯示）
-                        if emp_id != current_user_id:
-                            users_list.append({
-                                'id': emp_id,
-                                'name': emp_name,
-                                'display': f"{emp_name} ({emp_id})"
-                            })
-        except Exception as e:
-            logger.error(f"獲取使用者列表失敗: {str(e)}")
-
-    # ✅ 按姓名排序（可選）
-    users_list.sort(key=lambda x: x['name'])
-
     return render(request, 'material/box_add.html', {
-        'users_list': users_list,
         'current_user_id': current_user_id,
         'current_user_name': current_user_name,
     })
@@ -191,13 +276,18 @@ def box_add(request):
 
 def box_edit(request, box_id):
     """編輯容器"""
+    # ✅ 權限檢查：只有 Admin 和 Manager 可以編輯
+    if not request.user.groups.filter(name__in=['Admin', 'Manager']).exists():
+        messages.error(request, '您沒有權限編輯容器')
+        return redirect('material:box_list')
+
     box = get_object_or_404(MaterialOverview, BoxID=box_id)
 
     if request.method == 'POST':
         try:
             box.Category = request.POST.get('Category') or None
             box.Description = request.POST.get('Description') or None
-            box.Owner = request.POST.get('Owner') or None  # ✅ 儲存工號
+            box.Owner = request.POST.get('Owner') or None
             box.Status = request.POST.get('Status') or None
             box.Locked = request.POST.get('Locked') == 'true'
             box.save()
@@ -209,7 +299,6 @@ def box_edit(request, box_id):
             messages.error(request, f'更新容器失敗: {str(e)}')
             return redirect('material:box_edit', box_id=box_id)
 
-    # ✅ GET 請求：準備使用者列表
     current_user_id = request.COOKIES.get('user_emp_id', '')
     current_user_name = unquote(request.COOKIES.get('user_name', '未知使用者'))
 
@@ -252,9 +341,14 @@ def box_edit(request, box_id):
         'current_user_name': current_user_name,
     })
 
-
+@admin_required
 def box_delete(request, box_id):
     """刪除容器"""
+    # ✅ 權限檢查：只有 Admin 可以刪除
+    if not request.user.groups.filter(name='Admin').exists():
+        messages.error(request, '您沒有權限刪除容器')
+        return redirect('material:box_list')
+
     if request.method == 'POST':
         try:
             box = get_object_or_404(MaterialOverview, BoxID=box_id)
@@ -275,6 +369,11 @@ def box_delete(request, box_id):
 
 def box_toggle_lock(request):
     """鎖定 / 解鎖容器"""
+    # ✅ 權限檢查：只有 Admin 和 Manager 可以鎖定/解鎖
+    if not request.user.groups.filter(name__in=['Admin', 'Manager']).exists():
+        messages.error(request, '您沒有權限執行此操作')
+        return redirect('material:box_list')
+
     if request.method == 'POST':
         try:
             box_id = request.POST.get('BoxID')
@@ -303,7 +402,6 @@ def box_checkin(request):
             box_id = request.POST.get('BoxID')
             selected_items = request.POST.getlist('selected_items')
 
-            # ✅ 改為儲存工號
             operator_id = request.COOKIES.get('user_emp_id', '系統')
 
             if not box_id:
@@ -311,6 +409,7 @@ def box_checkin(request):
                 return redirect('material:box_list')
 
             target_box = get_object_or_404(MaterialOverview, BoxID=box_id)
+
             if target_box.Locked:
                 messages.error(request, f'容器 {box_id} 已鎖定，無法入庫')
                 return redirect('material:box_list')
@@ -318,13 +417,13 @@ def box_checkin(request):
             success_count = 0
             for sn in selected_items:
                 qty = int(request.POST.get(f'qty_{sn}', 0))
-                if qty <= 0: continue
+                if qty <= 0:
+                    continue
 
                 source_item = MaterialItems.objects.get(SN=sn)
                 original_box_id = source_item.BoxID.BoxID
                 stock_before = source_item.Quantity
 
-                # 累加或調撥邏輯
                 if source_item.BoxID == target_box:
                     source_item.Quantity += qty
                     source_item.save()
@@ -355,7 +454,7 @@ def box_checkin(request):
                     FromBoxID=original_box_id if action == '調撥' else None,
                     ToBoxID=box_id, TransQty=qty,
                     StockBefore=stock_before, StockAfter=current_item.Quantity,
-                    Operator=operator_id,  # ✅ 儲存工號
+                    Operator=operator_id,
                     Remark=remark
                 )
                 success_count += 1
@@ -372,25 +471,33 @@ def box_checkin(request):
 
 def item_list(request):
     """物品列表"""
-    items = MaterialItems.objects.all().select_related('BoxID').order_by('SN')
+    filter_box_id = request.GET.get('box_id', '')
+
+    # ✅ 改用 '-UpdateTime' 排序，最新的在最上面
+    items = MaterialItems.objects.all().select_related('BoxID')
+
+    if filter_box_id:
+        items = items.filter(BoxID__BoxID=filter_box_id)
+
+    # ✅ 按更新時間降序排列（最新的在最上面）
+    items = items.order_by('-UpdateTime', '-id')
+
     boxes = MaterialOverview.objects.all().order_by('BoxID')
 
-    # ✅ 獲取當前使用者資訊
     current_user_id = request.COOKIES.get('user_emp_id', '')
     current_user_name = unquote(request.COOKIES.get('user_name', '未知使用者'))
-
-    print(f"🔍 item_list - 當前使用者 - 工號: {current_user_id}, 姓名: {current_user_name}")
 
     return render(request, 'material/item_list.html', {
         'items': items,
         'boxes': boxes,
-        'current_user_id': current_user_id,  # ✅ 新增這行
-        'current_user_name': current_user_name,  # ✅ 新增這行
+        'current_user_id': current_user_id,
+        'current_user_name': current_user_name,
+        'filter_box_id': filter_box_id,
     })
+
 
 def item_add(request):
     """新增物品"""
-    # ✅ 獲取當前使用者資訊
     current_user_id = request.COOKIES.get('user_emp_id', '')
     current_user_name = unquote(request.COOKIES.get('user_name', '未知使用者'))
 
@@ -400,10 +507,14 @@ def item_add(request):
             box_id = request.POST.get('BoxID')
             quantity = int(request.POST.get('Quantity', 0))
 
-            # ✅ 操作人員直接使用當前登入使用者的工號
             operator_id = current_user_id
 
             box = get_object_or_404(MaterialOverview, BoxID=box_id)
+
+            if box.Locked:
+                messages.error(request, f'容器 {box_id} 已鎖定，無法新增物品')
+                return redirect('material:item_list')
+
             item = MaterialItems.objects.create(
                 SN=sn, BoxID=box, ItemName=request.POST.get('ItemName'),
                 Spec=request.POST.get('Spec') or None,
@@ -414,7 +525,7 @@ def item_add(request):
             TransactionLog.objects.create(
                 SN=item, ActionType='入庫', ToBoxID=box_id,
                 TransQty=quantity, StockBefore=0, StockAfter=quantity,
-                Operator=operator_id,  # ✅ 儲存當前登入使用者工號
+                Operator=operator_id,
                 Remark='手動新增物品入庫'
             )
 
@@ -426,7 +537,6 @@ def item_add(request):
 
     boxes = MaterialOverview.objects.all().order_by('BoxID')
 
-    # ✅ 傳遞當前使用者資訊到模板
     return render(request, 'material/item_add.html', {
         'boxes': boxes,
         'current_user_id': current_user_id,
@@ -434,107 +544,188 @@ def item_add(request):
     })
 
 
-def item_edit(request, item_id):
+def item_edit(request, sn):
     """編輯物品"""
-    item = get_object_or_404(MaterialItems, SN=item_id)
 
-    # ✅ 獲取當前使用者資訊
-    current_user_id = request.COOKIES.get('user_emp_id', '')
-    current_user_name = unquote(request.COOKIES.get('user_name', '未知使用者'))
+    # ✅ 用一個標記避免重複警告
+    has_duplicate_warning = False
+
+    try:
+        item = MaterialItems.objects.get(SN=sn)
+    except MaterialItems.DoesNotExist:
+        messages.error(request, f'找不到序號為 {sn} 的物品')
+        return redirect('material:box_list')
+    except MaterialItems.MultipleObjectsReturned:
+        # 如果有多筆記錄，取最新的一筆
+        items = MaterialItems.objects.filter(SN=sn).order_by('-UpdateTime', '-id')
+        item = items.first()
+
+        # ✅ 只添加一次警告訊息
+        if not has_duplicate_warning:
+            messages.warning(
+                request,
+                f'警告：序號 {sn} 有 {items.count()} 筆重複記錄！'
+                f'請使用管理命令清理：python manage.py merge_duplicate_items --sn "{sn}"'
+            )
+            has_duplicate_warning = True
+
+        print(f"⚠️ 發現重複 SN: {sn}, 共 {items.count()} 筆")
 
     if request.method == 'POST':
         try:
-            old_qty = item.Quantity
-            new_qty = int(request.POST.get('Quantity', 0))
+            # 取得表單資料
+            box_id_str = request.POST.get('BoxID', '').strip()
+            item_name = request.POST.get('ItemName', '').strip()
+            spec = request.POST.get('Spec', '').strip()
+            location = request.POST.get('Location', '').strip()
 
-            # ✅ 操作人員直接使用當前登入使用者的工號
-            operator_id = current_user_id
+            try:
+                quantity = int(request.POST.get('Quantity', 0))
+            except (ValueError, TypeError):
+                quantity = 0
 
-            item.BoxID = get_object_or_404(MaterialOverview, BoxID=request.POST.get('BoxID'))
-            item.ItemName = request.POST.get('ItemName')
-            item.Spec = request.POST.get('Spec') or None
-            item.Location = request.POST.get('Location') or None
-            item.Quantity = new_qty
+            # 驗證
+            if not item_name:
+                messages.error(request, '物品名稱為必填欄位')
+                return redirect('material:box_list')
+
+            if not box_id_str:
+                messages.error(request, '所在容器為必填欄位')
+                return redirect('material:box_list')
+
+            # 取得容器
+            try:
+                box = MaterialOverview.objects.get(BoxID=box_id_str)
+            except MaterialOverview.DoesNotExist:
+                messages.error(request, f'容器 {box_id_str} 不存在')
+                return redirect('material:box_list')
+
+            if box.Locked:
+                messages.error(request, f'容器 {box_id_str} 已被鎖定，無法編輯物品')
+                return redirect('material:box_list')
+
+            # ✅ 檢查是否會造成唯一約束衝突
+            # 如果改變了 BoxID，需要檢查新的 (SN, BoxID) 組合是否已存在
+            if item.BoxID_id != box_id_str:
+                existing = MaterialItems.objects.filter(
+                    SN=sn,
+                    BoxID_id=box_id_str
+                ).exclude(id=item.id).exists()
+
+                if existing:
+                    messages.error(
+                        request,
+                        f'容器 {box_id_str} 中已存在序號 {sn} 的物品，無法移動'
+                    )
+                    return redirect('material:box_list')
+
+            # 更新
+            item.ItemName = item_name
+            item.Spec = spec
+            item.Location = location
+            item.Quantity = quantity
+            item.BoxID = box
+
             item.save()
 
-            if old_qty != new_qty:
-                TransactionLog.objects.create(
-                    SN=item, ActionType='入庫' if new_qty > old_qty else '出庫',
-                    TransQty=abs(new_qty - old_qty), StockBefore=old_qty, StockAfter=new_qty,
-                    Operator=operator_id,  # ✅ 儲存當前登入使用者工號
-                    Remark='編輯資料變更數量'
-                )
-            messages.success(request, f'物品 {item_id} 已更新')
-            return redirect('material:item_list')
-        except Exception as e:
-            messages.error(request, f'失敗: {str(e)}')
+            messages.success(request, f'物品 {sn} 已成功更新')
+            print(f"✅ 物品編輯成功: SN={sn}")
 
-    # ✅ 傳遞當前使用者資訊到模板
+        except Exception as e:
+            messages.error(request, f'更新物品時發生錯誤: {str(e)}')
+            print(f"❌ 物品編輯失敗: {e}")
+            import traceback
+            traceback.print_exc()
+
+        return redirect('material:box_list')
+
+    boxes = MaterialOverview.objects.all().order_by('BoxID')
     return render(request, 'material/item_edit.html', {
         'item': item,
-        'boxes': MaterialOverview.objects.all(),
-        'current_user_id': current_user_id,
-        'current_user_name': current_user_name,
+        'boxes': boxes
     })
 
-def item_delete(request, item_id):
+
+def item_delete(request, sn):
     """刪除物品"""
     if request.method == 'POST':
         try:
-            item = get_object_or_404(MaterialItems, SN=item_id)
+            # ✅ 使用 filter + first() 處理可能的多筆記錄
+            items = MaterialItems.objects.filter(SN=sn)
 
-            # ✅ 改為儲存工號
-            operator_id = request.COOKIES.get('user_emp_id', '系統')
+            if not items.exists():
+                messages.error(request, f'找不到序號為 {sn} 的物品')
+                return redirect('material:item_list')
 
-            # 先保存必要資訊
-            item_sn = item.SN
-            box_id = item.BoxID.BoxID
-            quantity = item.Quantity
+            # 如果有多筆，先警告
+            if items.count() > 1:
+                messages.warning(
+                    request,
+                    f'警告：序號 {sn} 有 {items.count()} 筆記錄！'
+                    f'建議先使用合併命令清理：python manage.py merge_duplicate_items --sn "{sn}"'
+                )
+                # 可以選擇只刪除第一筆，或者拒絕刪除
+                # 選項1：拒絕刪除
+                messages.error(request, '請先清理重複記錄再執行刪除操作')
+                return redirect('material:item_list')
 
-            # 先建立刪除紀錄
-            TransactionLog.objects.create(
-                SN=item,
-                ActionType='出庫',
-                FromBoxID=box_id,
-                TransQty=quantity,
-                StockBefore=quantity,
-                StockAfter=0,
-                Operator=operator_id,  # ✅ 儲存工號
-                Remark='刪除物品'
-            )
+            # 只有一筆時才刪除
+            item = items.first()
 
-            # 刪除物品
+            # 檢查是否有交易記錄引用
+            from django.db import connection
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM material_app_transactionlog
+                    WHERE SN_id = %s
+                """, [item.id])
+                transaction_count = cursor.fetchone()[0]
+
+            if transaction_count > 0:
+                messages.error(
+                    request,
+                    f'無法刪除：此物品有 {transaction_count} 筆交易記錄關聯'
+                )
+                return redirect('material:item_list')
+
+            # 執行刪除
+            item_name = item.ItemName
             item.delete()
 
-            messages.success(request, f'物品 {item_sn} 已刪除')
+            messages.success(request, f'已成功刪除物品：{sn} - {item_name}')
+            print(f"✅ 刪除物品成功: {sn}")
 
         except Exception as e:
             messages.error(request, f'刪除失敗: {str(e)}')
+            print(f"❌ 刪除物品失敗: {e}")
+            import traceback
+            traceback.print_exc()
 
-    return redirect('material:item_list')
+        return redirect('material:item_list')
+
+    # GET 請求：顯示確認頁面（如果有的話）
+    try:
+        items = MaterialItems.objects.filter(SN=sn)
+        if items.count() > 1:
+            messages.warning(request, f'此序號有 {items.count()} 筆重複記錄')
+        item = items.first()
+    except Exception as e:
+        messages.error(request, f'找不到物品: {str(e)}')
+        return redirect('material:item_list')
+
+    return render(request, 'material/item_delete_confirm.html', {'item': item})
+
 
 # ==================== 調撥功能 ====================
 
 def transaction_transfer(request):
     """物品調撥"""
-    # ✅ 獲取當前使用者資訊
     current_user_id = request.COOKIES.get('user_emp_id', '')
     current_user_name = unquote(request.COOKIES.get('user_name', '未知使用者'))
 
-    # 🔍 DEBUG - 印出接收到的值
-    print("=" * 60)
-    print("🔍 transaction_transfer - 接收到的 Cookie 值:")
-    print(f"   Raw Cookie user_emp_id = '{request.COOKIES.get('user_emp_id', 'NOT_FOUND')}'")
-    print(f"   Raw Cookie user_name = '{request.COOKIES.get('user_name', 'NOT_FOUND')}'")
-    print(f"   current_user_id = '{current_user_id}'")
-    print(f"   current_user_name = '{current_user_name}'")
-    print(f"   顯示格式將是: {current_user_name} ({current_user_id})")
-    print("=" * 60)
-
-    # ✅ 接收從物品列表傳來的參數
-    pre_sn = request.GET.get('sn', '')  # 物品序號
-    pre_source_box = request.GET.get('source_box', '')  # 來源容器
-    pre_location = request.GET.get('location', '')  # 位置
+    pre_sn = request.GET.get('sn', '')
+    pre_source_box = request.GET.get('source_box', '')
+    pre_location = request.GET.get('location', '')
 
     if request.method == 'POST':
         try:
@@ -542,12 +733,18 @@ def transaction_transfer(request):
             to_box_id = request.POST.get('to_box')
             item_sn = request.POST.get('item')
             quantity = int(request.POST.get('quantity', 0))
-
-            # ✅ 操作人員直接使用當前登入使用者的工號
             operator_id = current_user_id
 
             from_box = get_object_or_404(MaterialOverview, BoxID=from_box_id)
             to_box = get_object_or_404(MaterialOverview, BoxID=to_box_id)
+
+            if from_box.Locked:
+                messages.error(request, f'來源容器 {from_box_id} 已鎖定，無法調撥')
+                return redirect('material:transaction_transfer')
+
+            if to_box.Locked:
+                messages.error(request, f'目標容器 {to_box_id} 已鎖定，無法調撥')
+                return redirect('material:transaction_transfer')
 
             from_item = MaterialItems.objects.get(SN=item_sn, BoxID=from_box)
             stock_before = from_item.Quantity
@@ -571,7 +768,7 @@ def transaction_transfer(request):
             TransactionLog.objects.create(
                 SN=to_item, ActionType='調撥', FromBoxID=from_box_id, ToBoxID=to_box_id,
                 TransQty=quantity, StockBefore=stock_before, StockAfter=from_item.Quantity,
-                Operator=operator_id,  # ✅ 儲存當前登入使用者工號
+                Operator=operator_id,
                 Remark=request.POST.get('remark', f'從 {from_box_id} 調撥')
             )
             messages.success(request, '調撥成功！')
@@ -581,21 +778,29 @@ def transaction_transfer(request):
 
     boxes = MaterialOverview.objects.filter(Locked=False).order_by('BoxID')
 
-    # ✅ 傳遞當前使用者資訊和預填充參數到模板
     return render(request, 'material/transaction_transfer.html', {
         'boxes': boxes,
         'current_user_id': current_user_id,
         'current_user_name': current_user_name,
-        'pre_sn': pre_sn,  # ✅ 預填充物品序號
-        'pre_source_box': pre_source_box,  # ✅ 預填充來源容器
-        'pre_location': pre_location,  # ✅ 預填充位置
+        'pre_sn': pre_sn,
+        'pre_source_box': pre_source_box,
+        'pre_location': pre_location,
     })
+
+
+
+
+
 
 def transaction_history(request):
     """歷史紀錄"""
     transactions = TransactionLog.objects.all().select_related('SN').order_by('-Timestamp')
 
-    # ✅ 獲取使用者列表建立工號到姓名的對應
+    # ✅ 權限檢查：Employee 只能看自己的
+    if request.user.groups.filter(name='emp').exists():
+        current_user_id = request.COOKIES.get('user_emp_id', '')
+        transactions = transactions.filter(Operator=current_user_id)
+
     token = request.COOKIES.get('auth_token')
     users_map = {}
 
@@ -615,14 +820,13 @@ def transaction_history(request):
         except Exception as e:
             logger.error(f"獲取使用者列表失敗: {str(e)}")
 
-    # ✅ 為每筆交易記錄添加 operator_display 屬性
     for trans in transactions:
         if trans.Operator:
             operator_id = trans.Operator
             if operator_id in users_map:
                 trans.operator_display = f"{users_map[operator_id]} ({operator_id})"
             else:
-                trans.operator_display = operator_id  # 找不到對應姓名，只顯示工號
+                trans.operator_display = operator_id
         else:
             trans.operator_display = "系統"
 
@@ -638,7 +842,17 @@ def transaction_history(request):
         'stats': stats
     })
 
+
+
+
+
+
+
+
+
 # ==================== 認證：API Login / Logout ====================
+
+# material_app/views.py
 
 @csrf_exempt
 def api_login(request):
@@ -663,7 +877,6 @@ def api_login(request):
             logger.error(f"Parse error: {str(e)}")
             return render(request, 'material/login.html', {'error_msg': '資料格式錯誤'})
 
-        # 呼叫外部 API 登入
         try:
             payload = {'emp_id': emp_id, 'password': pw}
             response = requests.post(EXTERNAL_API_URL, data=payload, timeout=API_TIMEOUT)
@@ -675,102 +888,54 @@ def api_login(request):
                 if not token_from_api:
                     return render(request, 'material/login.html', {'error_msg': '認證服務回應格式錯誤'})
 
-                # ✅ 預設值：使用輸入的帳號（作為備用）
-                user_emp_id = emp_id
-                user_name = emp_id
-
-                # ✅ 使用 token 呼叫 /api/me 取得當前使用者詳細資料
+                # ✅ 檢查 MMS 權限（只讀 roles，不讀 permissions）
                 try:
-                    me_api_url = 'http://192.168.0.10:9987/api/me'
-                    headers = {'Authorization': f'Bearer {token_from_api}'}
-                    me_response = requests.get(me_api_url, headers=headers, timeout=API_TIMEOUT)
-
-                    print(f"🔍 /api/me 回應狀態: {me_response.status_code}")
+                    me_response = requests.get(
+                        'http://192.168.0.10:9987/api/me',
+                        headers={'Authorization': f'Bearer {token_from_api}'},
+                        timeout=5
+                    )
 
                     if me_response.status_code == 200:
                         me_data = me_response.json()
-                        print(f"🔍 /api/me 完整回應內容:")
-                        print(json.dumps(me_data, ensure_ascii=False, indent=2))
+                        user_name = me_data.get('name') or me_data.get('Name') or emp_id
 
-                        # ✅ 嘗試多種可能的欄位名稱來取得工號
-                        extracted_emp_id = (
-                            me_data.get('ID') or
-                            me_data.get('id') or
-                            me_data.get('EmpID') or
-                            me_data.get('emp_id') or
-                            me_data.get('EmployeeID') or
-                            me_data.get('employee_id')
-                        )
+                        # ✅ 只讀取 roles 字段
+                        all_roles = me_data.get('roles', [])
 
-                        # ✅ 取得姓名
-                        extracted_name = (
-                            me_data.get('Name') or
-                            me_data.get('name') or
-                            me_data.get('DisplayName') or
-                            me_data.get('display_name')
-                        )
+                        # ✅ 過濾 MMS 角色
+                        mms_roles = [role for role in all_roles if isinstance(role, str) and role.startswith('MMS_')]
 
-                        # ✅ 只有成功取得資料才覆蓋預設值
-                        if extracted_emp_id:
-                            user_emp_id = str(extracted_emp_id)
-                            print(f"✅ 從 API 取得工號: {user_emp_id}")
-                        else:
-                            print(f"⚠️ 警告：無法從 /api/me 取得工號")
-                            print(f"⚠️ 可用的欄位: {list(me_data.keys())}")
-                            print(f"⚠️ 將使用輸入的帳號作為工號: {user_emp_id}")
+                        logger.info(f"📋 所有角色: {all_roles}")
+                        logger.info(f"🎯 MMS 角色: {mms_roles}")
 
-                        if extracted_name:
-                            user_name = extracted_name
-                            print(f"✅ 從 API 取得姓名: {user_name}")
-                        else:
-                            print(f"⚠️ 警告：無法從 /api/me 取得姓名，將使用輸入的帳號: {user_name}")
+                        # 檢查是否有 MMS 角色
+                        if not mms_roles:
+                            logger.warning(f"❌ 用戶 {emp_id} 沒有 MMS 系統權限")
+                            return render(request, 'material/login.html', {
+                                'error_msg': '您沒有物料管理系統的存取權限，請聯絡系統管理員設定 MMS 角色'
+                            })
 
-                    else:
-                        print(f"⚠️ /api/me 回應異常，狀態碼: {me_response.status_code}")
-                        print(f"⚠️ 回應內容: {me_response.text}")
-                        print(f"⚠️ 將使用輸入的帳號 - 工號: {user_emp_id}, 姓名: {user_name}")
+                        logger.info(f"✅ 用戶 {emp_id} MMS 權限驗證通過: {mms_roles}")
 
                 except Exception as e:
-                    print(f"❌ 呼叫 /api/me 錯誤: {str(e)}")
-                    logger.exception("Failed to fetch user data from /api/me")
-                    print(f"⚠️ 將使用輸入的帳號 - 工號: {user_emp_id}, 姓名: {user_name}")
+                    logger.error(f"❌ 權限驗證失敗: {e}")
+                    user_name = emp_id
 
-                print(f"=" * 60)
-                print(f"✅ 最終設定 Cookie:")
-                print(f"   user_emp_id = '{user_emp_id}'")
-                print(f"   user_name = '{user_name}'")
-                print(f"   顯示結果將是: {user_name} ({user_emp_id})")
-                print(f"=" * 60)
+                # 清除快取
+                cache_key = f'user_info_{emp_id}'
+                cache.delete(cache_key)
+                logger.info(f"🗑️ 清除快取: {cache_key}")
 
+                # 設定 cookie
                 expiry = timezone.now() + timedelta(hours=24)
-                response_obj = redirect('material:box_list')
+                response_obj = redirect('material:index')
 
-                # 設定 auth_token
-                response_obj.set_cookie(
-                    'auth_token',
-                    token_from_api,
-                    expires=expiry,
-                    httponly=True,
-                    samesite='Lax',
-                )
+                response_obj.set_cookie('auth_token', token_from_api, expires=expiry, httponly=True, samesite='Lax')
+                response_obj.set_cookie('user_emp_id', emp_id, expires=expiry, samesite='Lax')
+                response_obj.set_cookie('user_name', quote(user_name), expires=expiry, samesite='Lax')
 
-                # ✅ 設定使用者工號
-                response_obj.set_cookie(
-                    'user_emp_id',
-                    user_emp_id,
-                    expires=expiry,
-                    samesite='Lax',
-                )
-
-                # ✅ 設定使用者姓名（URL 編碼以支援中文）
-                from urllib.parse import quote
-                response_obj.set_cookie(
-                    'user_name',
-                    quote(user_name),
-                    expires=expiry,
-                    samesite='Lax',
-                )
-
+                logger.info(f"✅ 登入成功: {emp_id} ({user_name})")
                 return response_obj
 
             elif response.status_code == 401:
@@ -785,13 +950,24 @@ def api_login(request):
     return JsonResponse({"error": "不支援的請求方法"}, status=405)
 
 
+
 @require_http_methods(["GET", "POST"])
 def api_logout(request):
     """登出"""
+
+    # ✅ 清除快取
+    user_id = request.COOKIES.get('user_emp_id')
+    if user_id:
+        cache_key = f'user_info_{user_id}'
+        cache.delete(cache_key)
+        logger.info(f"🗑️ Cleared cache for user {user_id}")
+
     response = redirect('material:login')
     response.delete_cookie('auth_token')
     response.delete_cookie('user_emp_id')
     response.delete_cookie('user_name')
+    response.delete_cookie('user_role')
+
     return response
 
 
@@ -812,6 +988,8 @@ def api_refresh(request):
                         json_dumps_params={'ensure_ascii': False})
 
 
+# material/views.py 或 material/api_views.py
+
 def get_me(request):
     """GET /api/me - 取得當前登入使用者資訊"""
     emp = getattr(request, 'employee', None)
@@ -824,9 +1002,12 @@ def get_me(request):
         "Name": emp.Name,
         "DepartmentID": getattr(emp, 'DeptID', 'N/A'),
         "JobGrade": getattr(emp, 'JobGrade', 'N/A'),
-        "IDNumber": "********",
-        "Birthday": emp.Birthday.strftime('%Y-%m-%d') if hasattr(emp, 'Birthday') and emp.Birthday else "N/A",
-        "Gender": getattr(emp, 'Gender', 'N/A')
+        "IDNumber": "********",  # 隱私保護
+        "Birthday": emp.Birthday if isinstance(emp.Birthday, str) else "N/A",
+        "Gender": getattr(emp, 'Gender', 'N/A'),
+        # 新增角色資訊
+        "Role": getattr(request, 'user_role', 'user'),
+        "RoleDisplay": getattr(request, 'user_role_display', '物料系統_使用者')
     }, json_dumps_params={'ensure_ascii': False})
 
 
@@ -838,12 +1019,64 @@ def get_box_items(request, box_id):
     return JsonResponse({'items': data})
 
 
+@require_http_methods(["GET"])
+def get_box_details(request, box_id):
+    """
+    取得容器詳細資料（包含容器資訊和內含物品列表）
+    GET /material/api/box/<box_id>/details/
+    """
+    try:
+        # 取得容器資訊
+        box = get_object_or_404(MaterialOverview, BoxID=box_id)
+
+        # 取得容器內的所有物品
+        items = MaterialItems.objects.filter(BoxID=box).order_by('SN')
+
+        # 組裝容器資料
+        box_data = {
+            'BoxID': box.BoxID,
+            'Category': box.Category,
+            'Description': box.Description,
+            'Owner': box.Owner,
+            'Status': box.Status,
+            'Locked': box.Locked,
+            'CreateDate': box.CreateDate.strftime('%Y-%m-%d %H:%M:%S') if box.CreateDate else None,
+        }
+
+        # 組裝物品資料
+        items_data = []
+        for item in items:
+            items_data.append({
+                'SN': item.SN,
+                'ItemName': item.ItemName,
+                'Spec': item.Spec,
+                'Quantity': item.Quantity,
+                'Location': item.Location,
+                'UpdateTime': item.UpdateTime.strftime('%Y-%m-%d %H:%M:%S') if item.UpdateTime else None,
+            })
+
+        return JsonResponse({
+            'success': True,
+            'box': box_data,
+            'items': items_data
+        })
+
+    except Exception as e:
+        logger.exception("取得容器詳細資料失敗")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+
+
+
 def get_recent_transfers(request):
     """獲取最近的調撥記錄"""
     try:
         transfers = TransactionLog.objects.filter(ActionType='調撥').order_by('-Timestamp')[:10]
 
-        # ✅ 獲取使用者列表建立工號到姓名的對應
         token = request.COOKIES.get('auth_token')
         users_map = {}
 
@@ -863,13 +1096,10 @@ def get_recent_transfers(request):
             except Exception as e:
                 logger.error(f"獲取使用者列表失敗: {str(e)}")
 
-        # ✅ 組裝返回資料
         data = []
         for t in transfers:
-            # 取得操作人員姓名
             operator_id = t.Operator or '未知'
 
-            # ✅ 修正：確保顯示格式為「姓名 (工號)」
             if operator_id != '未知':
                 operator_name = users_map.get(operator_id, operator_id)
                 operator_display = f"{operator_name} ({operator_id})"
@@ -882,7 +1112,7 @@ def get_recent_transfers(request):
                 'quantity': t.TransQty,
                 'from_box': t.FromBoxID or '—',
                 'to_box': t.ToBoxID or '—',
-                'operator': operator_display  # ✅ 返回「姓名 (工號)」格式
+                'operator': operator_display
             })
 
         return JsonResponse({'transfers': data})
@@ -891,7 +1121,6 @@ def get_recent_transfers(request):
         logger.exception("獲取調撥記錄失敗")
         return JsonResponse({'error': str(e), 'transfers': []}, status=500)
 
-# ==================== API - 獲取使用者列表 ====================
 
 def get_users_list(request):
     """獲取所有使用者列表 (供前端下拉選單使用,過濾已離職員工)"""
@@ -910,20 +1139,17 @@ def get_users_list(request):
 
             if isinstance(user_data, list):
                 for user in user_data:
-                    # ✅ 過濾離職員工
                     is_active = user.get('IsActive')
                     status = user.get('Status') or user.get('status') or ''
 
-                    # 跳過已離職員工
                     if is_active == False:
                         continue
                     if '離職' in str(status) or 'resigned' in str(status).lower():
                         continue
 
-                    # ✅ 返回工號和姓名（前端會用工號作為 value）
                     users.append({
-                        'id': user.get('ID') or user.get('id') or user.get('EmpID'),  # 工號
-                        'name': user.get('Name') or user.get('name') or user.get('employee_name', '未知')  # 姓名
+                        'id': user.get('ID') or user.get('id') or user.get('EmpID'),
+                        'name': user.get('Name') or user.get('name') or user.get('employee_name', '未知')
                     })
 
             return JsonResponse({'users': users})
@@ -933,3 +1159,174 @@ def get_users_list(request):
     except Exception as e:
         logger.exception("Failed to fetch users list")
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# ==================== 交易記錄 API ====================
+
+@api_view(['GET'])
+def get_my_transactions(request):
+    """
+    GET /api/transactions/my
+    Employee 專用：只能看自己的交易記錄
+    """
+    try:
+        # 從 cookie 取得當前使用者工號
+        current_user_id = request.COOKIES.get('user_emp_id', '')
+
+        if not current_user_id:
+            return JsonResponse({
+                'error': '未登入或無法識別使用者'
+            }, status=401)
+
+        # 只查詢當前使用者的記錄
+        transactions = TransactionLog.objects.filter(
+            Operator=current_user_id
+        ).select_related('SN').order_by('-Timestamp')
+
+        # 取得使用者列表建立工號到姓名的對應
+        token = request.COOKIES.get('auth_token')
+        users_map = {}
+
+        if token:
+            try:
+                user_api_url = 'http://192.168.0.10:9987/api/users'
+                headers = {'Authorization': f'Bearer {token}'}
+                response = requests.get(user_api_url, headers=headers, timeout=API_TIMEOUT)
+
+                if response.status_code == 200:
+                    user_data = response.json()
+                    if isinstance(user_data, list):
+                        for user in user_data:
+                            emp_id = str(user.get('ID') or user.get('id') or user.get('EmpID', ''))
+                            emp_name = user.get('Name') or user.get('name') or '未知'
+                            users_map[emp_id] = emp_name
+            except Exception as e:
+                logger.error(f"獲取使用者列表失敗: {str(e)}")
+
+        # 組裝資料
+        data = []
+        for trans in transactions:
+            operator_id = trans.Operator or '未知'
+
+            if operator_id != '未知' and operator_id in users_map:
+                operator_display = f"{users_map[operator_id]} ({operator_id})"
+            else:
+                operator_display = operator_id
+
+            data.append({
+                'id': trans.ID,
+                'timestamp': trans.Timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                'item_sn': trans.SN.SN if trans.SN else '未知',
+                'item_name': trans.SN.ItemName if trans.SN else '未知',
+                'action_type': trans.ActionType,
+                'from_box': trans.FromBoxID or '—',
+                'to_box': trans.ToBoxID or '—',
+                'quantity': trans.TransQty,
+                'stock_before': trans.StockBefore,
+                'stock_after': trans.StockAfter,
+                'operator': operator_display,
+                'remark': trans.Remark or '',
+            })
+
+        return JsonResponse({
+            'success': True,
+            'count': len(data),
+            'scope': 'personal',  # 標記這是個人記錄
+            'transactions': data
+        })
+
+    except Exception as e:
+        logger.exception("獲取個人交易記錄失敗")
+        return JsonResponse({
+            'error': str(e),
+            'transactions': []
+        }, status=500)
+
+
+@api_view(['GET'])
+def get_all_transactions(request):
+    """
+    GET /api/transactions/all
+    Manager/Admin 專用：可以看所有人的交易記錄
+    """
+    try:
+        # ✅ 權限檢查：只有 Admin 和 Manager 可以訪問
+        if not request.user.groups.filter(name__in=['Admin', 'Manager']).exists():
+            return JsonResponse({
+                'error': '權限不足：此功能僅限 Manager 或 Admin'
+            }, status=403)
+
+        # 查詢所有記錄
+        transactions = TransactionLog.objects.all().select_related('SN').order_by('-Timestamp')
+
+        # 可選：支援分頁
+        page = request.GET.get('page', 1)
+        page_size = request.GET.get('page_size', 100)
+
+        try:
+            page = int(page)
+            page_size = int(page_size)
+            start = (page - 1) * page_size
+            end = start + page_size
+            transactions = transactions[start:end]
+        except ValueError:
+            pass
+
+        # 取得使用者列表建立工號到姓名的對應
+        token = request.COOKIES.get('auth_token')
+        users_map = {}
+
+        if token:
+            try:
+                user_api_url = 'http://192.168.0.10:9987/api/users'
+                headers = {'Authorization': f'Bearer {token}'}
+                response = requests.get(user_api_url, headers=headers, timeout=API_TIMEOUT)
+
+                if response.status_code == 200:
+                    user_data = response.json()
+                    if isinstance(user_data, list):
+                        for user in user_data:
+                            emp_id = str(user.get('ID') or user.get('id') or user.get('EmpID', ''))
+                            emp_name = user.get('Name') or user.get('name') or '未知'
+                            users_map[emp_id] = emp_name
+            except Exception as e:
+                logger.error(f"獲取使用者列表失敗: {str(e)}")
+
+        # 組裝資料
+        data = []
+        for trans in transactions:
+            operator_id = trans.Operator or '未知'
+
+            if operator_id != '未知' and operator_id in users_map:
+                operator_display = f"{users_map[operator_id]} ({operator_id})"
+            else:
+                operator_display = operator_id
+
+            data.append({
+                'id': trans.ID,
+                'timestamp': trans.Timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                'item_sn': trans.SN.SN if trans.SN else '未知',
+                'item_name': trans.SN.ItemName if trans.SN else '未知',
+                'action_type': trans.ActionType,
+                'from_box': trans.FromBoxID or '—',
+                'to_box': trans.ToBoxID or '—',
+                'quantity': trans.TransQty,
+                'stock_before': trans.StockBefore,
+                'stock_after': trans.StockAfter,
+                'operator': operator_display,
+                'remark': trans.Remark or '',
+            })
+
+        return JsonResponse({
+            'success': True,
+            'count': len(data),
+            'scope': 'all',  # 標記這是全部記錄
+            'transactions': data
+        })
+
+    except Exception as e:
+        logger.exception("獲取全部交易記錄失敗")
+        return JsonResponse({
+            'error': str(e),
+            'transactions': []
+        }, status=500)

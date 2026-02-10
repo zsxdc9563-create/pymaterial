@@ -1,6 +1,6 @@
 {% extends 'material/base.html' %}
 
-{% block title %}物品列表{% endblock %}
+{% block title %}物品列表 - 物料管理系統{% endblock %}
 {% block page_title %}物品列表{% endblock %}
 
 {% block extra_css %}
@@ -439,8 +439,6 @@
     </button>
 </div>
 
-
-
 <!-- ===== 篩選面板 ===== -->
 <div class="filter-panel">
     <div class="filter-panel-header" onclick="toggleFilterPanel()">
@@ -516,15 +514,15 @@
                         <td><span class="time-value">{{ item.UpdateTime|date:"Y-m-d H:i" }}</span></td>
                         <td>
                             <div class="action-group">
-                                <!-- 編輯 -->
+                                <!-- ✅ 編輯按鈕 - 使用 escapejs 過濾器 -->
                                 <button type="button" class="btn-act btn-act-edit"
-                                    onclick="openEditModal('{{ item.SN }}', '{{ item.ItemName }}', '{{ item.Spec|default:"" }}', '{{ item.BoxID.BoxID }}', '{{ item.Location|default:"" }}', {{ item.Quantity }})">
+                                    onclick="openEditModal('{{ item.SN|escapejs }}', '{{ item.ItemName|escapejs }}', '{{ item.Spec|default:""|escapejs }}', '{{ item.BoxID.BoxID }}', '{{ item.Location|default:""|escapejs }}', {{ item.Quantity }})">
                                     <i class="bi bi-pencil"></i> 編輯
                                 </button>
                                 <div class="btn-act-sep"></div>
                                 <!-- 刪除 -->
                                 <button type="button" class="btn-act btn-act-delete"
-                                    onclick="openDeleteModal('{{ item.SN }}', '{{ item.ItemName }}')">
+                                    onclick="openDeleteModal('{{ item.SN|escapejs }}', '{{ item.ItemName|escapejs }}')">
                                     <i class="bi bi-trash"></i> 刪除
                                 </button>
                                 <div class="btn-act-sep"></div>
@@ -551,7 +549,6 @@
         </div>
     </div>
 </div>
-
 
 <!-- ============================================================
      新增物品 Modal
@@ -620,7 +617,6 @@
     </div>
 </div>
 
-
 <!-- ============================================================
      編輯物品 Modal
      ============================================================ -->
@@ -687,7 +683,6 @@
     </div>
 </div>
 
-
 <!-- ============================================================
      刪除確認 Modal
      ============================================================ -->
@@ -723,7 +718,6 @@
 </div>
 
 {% endblock %}
-
 
 {% block extra_js %}
 <script>
@@ -841,7 +835,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const filterBox = document.getElementById('filter_box');
     if (filterBox) filterBox.addEventListener('change', applyFilter);
 
-    // 從容器頁「入庫」跳來 → 自動開啟新增 Modal 並預填充容器
+    // ✅ 從容器頁「入庫」跳來 → 自動開啟新增 Modal 並預填充容器
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('action') === 'add') {
         const defaultBox = urlParams.get('default_box');
@@ -869,7 +863,7 @@ function closeAddModal() {
     const currentUserName = getCookie('user_name');
     const currentUserId = getCookie('user_emp_id');
     if (currentUserName && currentUserId) {
-        document.getElementById('add_Operator').value = `${currentUserName} (${currentUserId})`;
+        document.getElementById('add_Operator').value = `${decodeURIComponent(currentUserName)} (${currentUserId})`;
     }
 }
 
@@ -884,8 +878,6 @@ function openEditModal(sn, itemName, spec, boxId, location, quantity) {
     document.getElementById('edit_BoxID').value     = boxId;
     document.getElementById('edit_Location').value  = location;
     document.getElementById('edit_Quantity').value  = quantity;
-
-    // ✅ 操作人員欄位自動填入當前登入使用者（已在 HTML 中設定為唯讀）
 
     document.getElementById('editItemModal').classList.add('show');
     document.body.style.overflow = 'hidden';

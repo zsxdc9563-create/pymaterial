@@ -38,9 +38,16 @@ ALLOWED_HOSTS = [
 
 
 
-# 外部認證 API 設定
-EXTERNAL_AUTH_API_URL = 'http://192.168.0.10:9987/api/auth/login'
-EXTERNAL_AUTH_TIMEOUT = 10  # 秒
+# 外部認證 API 設定 (定義 API)
+# 登入用（取得 token）
+EXTERNAL_AUTH_LOGIN_URL = 'http://192.168.0.10:9987/api/auth/login'
+
+# 驗證用（確認 token 和角色）
+EXTERNAL_AUTH_API_BASE = 'http://192.168.0.10:9987/api/users'
+
+EXTERNAL_AUTH_TIMEOUT = 10
+
+
 
 
 # Application definition
@@ -66,6 +73,11 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    #使用新的第三方認證中介層
+    'material_app.middleware.ThirdPartyAuthMiddleware',
+
+
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -126,10 +138,42 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+# 快取設定
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
 
 
 
 
+
+
+
+
+# 日誌設定
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'material_app': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
@@ -141,10 +185,20 @@ TIME_ZONE = 'Asia/Taipei'
 
 USE_I18N = True
 
-USE_TZ = True
+USE_TZ = False
 
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# ========== REST Framework 設定（可選） ==========
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+}

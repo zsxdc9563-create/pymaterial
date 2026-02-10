@@ -1,3 +1,132 @@
+****20260210
+
+
+1. 1035 已改角色 but display super admin
+2.容器list 三層權限 design
+
+3.login time must to locked
+
+
+
+
+***20260609
+
+你需要的是新增兩個 API 端點來區分「看自己的記錄」和「看所有人的記錄」。
+
+
+
+
+
+
+
+為什麼不需要 makemigrations 和 migrate？
+pythonclass Meta:
+    db_table = 'material_app_itemlist'
+    managed = False  # ← 關鍵：告訴 Django 不要管理這個資料表
+當 managed = False 時：
+
+❌ Django 不會為這個模型創建遷移檔案
+❌ Django 不會在資料庫中創建/修改/刪除這個資料表
+✅ Django 只會讀取現有的資料表結構
+✅ 你只需要確保模型定義與現有資料表結構匹配
+
+
+
+**20260206(box_list / item_list/ transcation_transfer/ transcation_history)
+
+********完整流程***
+1. 使用者訪問 /material/login/
+   ↓
+2. 輸入帳密，POST 到 api_login (你現有的)
+   ↓
+3. api_login 呼叫 /api/auth/login 取得 token
+   ↓
+4. api_login 呼叫 /api/me 取得使用者資訊
+   ↓
+5. 設定 cookie: auth_token, user_emp_id, user_name
+   ↓
+6. 重導向到 /material/boxes/
+   ↓
+7. ThirdPartyAuthMiddleware 攔截
+   ↓
+8. 從 cookie 讀取 token 和 user_emp_id
+   ↓
+9. 呼叫 /api/me 取得角色資訊
+   ↓
+10. 建立/更新 Django User 和 Group
+   ↓
+11. 設定 request.user (現在有權限了!)
+   ↓
+12. 顯示頁面
+
+寫index.html (主頁)權限不足
+
+
+
+
+效果預覽
+Admin 登入看到的首頁：  (ok)
+
+✅ 所有功能卡片都可點擊
+✅ 顯示「管理員」角色標籤（紅色）
+✅ 所有權限顯示「完整權限」
+
+Employee 登入看到的首頁： (ok)
+
+
+✅ 容器/物品管理顯示「唯讀」
+✅ 調撥功能可用
+✅ 新增容器顯示「權限不足」且無法點擊
+✅ 交易記錄顯示「僅限本人」
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+建議架構
+1. 角色設計 (Roles)
+先定義系統需要的角色，通常物料系統會有：
+
+Admin：系統管理者，可以新增/刪除物料、管理使用者、設定權限。
+
+Manager：部門主管，可以審核、修改物料資料，查看報表。
+
+Staff：一般員工，可以新增/編輯物料，但不能刪除或審核。
+
+Viewer：只能查看，不可修改。
+
+2. 權限設計 (Permissions)
+對應到 Django 的 Permission，例如：
+
+material_app.add_item → 新增物料
+
+material_app.change_item → 修改物料
+
+material_app.delete_item → 刪除物料
+
+material_app.view_item → 查看物料
+
+material_app.approve_transaction → 審核交易
+
+
+
+
+
+
+
 
 
 **20260205
@@ -10,31 +139,17 @@
 在所有 HTML 表單中,涉及「人員」的欄位都改成下拉式選單,選項從 http://192.168.0.10:9987/api/users 抓取。
 
 
+3.✅ 資料庫儲存工號（例如 1051）
+✅ 前端顯示姓名（例如 陳靜婕 (1051)）
+✅ 數據來源是外部 API http://192.168.0.10:9987/api/users
+✅ 自動過濾離職員工
+✅ 自動選中當前登入使用者
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+自動帶入當前登入的使用者
+設為唯讀狀態（不可修改)
 
 
 ===============================================
@@ -49,21 +164,21 @@ flowchart:
 
 使用者輸入帳密(登入畫面畫面)
 
-    ↓
+    ↓
 Django 接收(收到後，不查本地 DB，直接呼叫外部 API（例如 http://192.168.0.10:9987/api/auth/login）
-    ↓Django 把 token 存起來（session、cookie 或直接回傳給前端）。
- 呼叫外部 API    POST → http://192.168.0.10:9987   (外部 API 驗證成功 → 回傳 token。)
-    ↓驗證帳密
-    
-    ├─ 200 OK → 登入成功(取token string)->跳轉base.html
-    └─ 帳密錯誤 → 顯示錯誤訊息(停留在登入頁)
-   
+    ↓Django 把 token 存起來（session、cookie 或直接回傳給前端）。
+ 呼叫外部 API    POST → http://192.168.0.10:9987   (外部 API 驗證成功 → 回傳 token。)
+    ↓驗證帳密
+ 
+    ├─ 200 OK → 登入成功(取token string)->跳轉base.html
+    └─ 帳密錯誤 → 顯示錯誤訊息(停留在登入頁)
+ 
 
-                    停留在登入頁面
+                    停留在登入頁面
 +++++++++++++++++++++++++++++++++++++++++
 
 
- 使用流程：
+ 使用流程：
 
 1.登入成功後
 
@@ -178,4 +293,4 @@ AJAX 載入物品：點擊查看時動態載入物品清單
 ========差異==========
 
 1️⃣ Django Template      瀏覽器 ←→ Django Views ←→ Templates (HTML) ←→ Services ←→ Database
-    2️⃣ **前後端分離(Django REST API + React/Vue)    瀏覽器 (React/Vue) ←→ Django REST API ←→ Services ←→ Database
+    2️⃣ **前後端分離(Django REST API + React/Vue)    瀏覽器 (React/Vue) ←→ Django REST API ←→ Services ←→ Database

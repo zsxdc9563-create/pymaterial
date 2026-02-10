@@ -1,10 +1,26 @@
 {% extends 'material/base.html' %}
-{% block title %}容器列表 - 物料管理系統{% endblock %}
+{% load static %}
 
+{% block title %}容器列表 - 物料管理系統{% endblock %}
 {% block page_title %}容器列表{% endblock %}
 
-{% block extra_css %}
+{% block content %}
 <style>
+
+    .btn-info {
+        background-color: #0dcaf0;
+        color: white;
+        padding: 5px 12px;
+        font-size: 14px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-right: 5px;
+    }
+    .btn-info:hover {
+        background-color: #0bb5d6;
+    }
+
     .btn-add {
         background-color: #198754;
         color: white;
@@ -208,7 +224,7 @@
         box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         animation: slideDown 0.3s ease-out;
     }
-    .modal-content.modal-lg { max-width: 820px; }
+    .modal-content.modal-lg { max-width: 1000px; }
     .modal-content.modal-sm { max-width: 460px; }
 
     @keyframes slideDown {
@@ -321,9 +337,6 @@
     }
     .toast-item.leaving { animation: toastOut 0.3s ease-in forwards; }
 </style>
-{% endblock %}
-
-{% block content %}
 
 <!-- Toast 通知容器 -->
 <div class="toast-container" id="toastContainer"></div>
@@ -401,57 +414,73 @@
                         <th>操作</th>
                     </tr>
                 </thead>
+
                 <tbody>
                     {% for box in boxes %}
                     <tr class="box-row"
                         data-boxid="{{ box.BoxID }}"
                         data-category="{{ box.Category|default:'' }}"
                         data-owner="{{ box.Owner|default:'' }}"
-                        data-status="{{ box.Status|default:'' }}">
-                        <td><strong>{{ box.BoxID }}</strong></td>
+                        data-status="{{ box.Status|default:'' }}"
+                        {% if box.Locked %}style="background-color: #f8d7da; opacity: 0.8;"{% endif %}>
+
+                        <td>{{ box.BoxID }}</td>
                         <td>{{ box.Category|default:"—" }}</td>
                         <td>{{ box.Description|default:"—" }}</td>
-                        <td>{{ box.owner_display }}</td>
+                        <td>{{ box.owner_display|default:"未指定" }}</td>
+                        <td>{{ box.Status|default:"—" }}</td>
+                        <td>{{ box.CreateDate|date:"Y-m-d H:i:s" }}</td>
+
                         <td>
-                            {% if box.Status == "使用中" %}
-                                <span class="status-badge status-active">{{ box.Status }}</span>
-                            {% elif box.Status == "空閒" %}
-                                <span class="status-badge status-idle">{{ box.Status }}</span>
-                            {% elif box.Status == "結案" %}
-                                <span class="status-badge status-closed">{{ box.Status }}</span>
+                            <!-- ✅ 詳細資料按鈕 -->
+                            <button type="button"
+                                    class="btn btn-sm btn-info"
+                                    onclick="showBoxDetails('{{ box.BoxID }}')"
+                                    title="查看詳細資料">
+                                <i class="bi bi-info-circle"></i> 詳細
+                            </button>
+
+                            {% if box.Locked %}
+                                <!-- 已鎖定狀態 -->
+                                <span class="badge bg-danger">🔒 已鎖定</span>
+                                <form method="POST" action="{% url 'material:box_toggle_lock' %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="BoxID" value="{{ box.BoxID }}">
+                                    <input type="hidden" name="action" value="unlock">
+                                    <button type="submit" class="btn btn-sm btn-warning">
+                                        <i class="bi bi-unlock"></i> 解鎖
+                                    </button>
+                                </form>
                             {% else %}
-                                {{ box.Status|default:"—" }}
-                            {% endif %}
-                        </td>
-                        <td>{{ box.CreateDate|date:"Y-m-d H:i" }}</td>
-                        <td class="table-actions">
-                            <button class="btn btn-sm btn-edit"
-                                    onclick="openEditModal('{{ box.BoxID }}', '{{ box.Category }}', '{{ box.Description }}', '{{ box.Owner }}', '{{ box.Status }}', {{ box.Locked|lower }})">
-                                <i class="bi bi-pencil"></i> 編輯
-                            </button>
-
-                            <form method="post" action="{% url 'material:box_delete' box.BoxID %}" style="display:inline;" onsubmit="return confirm('確定要刪除此容器嗎？');">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-sm btn-delete">
-                                    <i class="bi bi-trash"></i> 刪除
+                                <!-- 未鎖定狀態 -->
+                                <button type="button" class="btn btn-sm btn-primary"
+                                        onclick="openEditModal('{{ box.BoxID }}', '{{ box.Category }}', '{{ box.Description }}', '{{ box.Owner }}', '{{ box.Status }}')">
+                                    <i class="bi bi-pencil"></i> 編輯
                                 </button>
-                            </form>
 
-                            <a href="{% url 'material:item_list' %}?action=add&default_box={{ box.BoxID }}" class="btn btn-sm btn-checkin">
-                                <i class="bi bi-box-arrow-in-down"></i> 入庫
-                            </a>
+                                <form method="POST" action="{% url 'material:box_delete' box.BoxID %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-danger"
+                                            onclick="return confirm('確定刪除容器 {{ box.BoxID }}？')">
+                                        <i class="bi bi-trash"></i> 刪除
+                                    </button>
+                                </form>
 
-                            <button class="btn btn-sm btn-lock {% if box.Locked %}locked{% else %}unlocked{% endif %}"
-                                    data-box-id="{{ box.BoxID }}"
-                                    data-box-desc="{{ box.Description|default:'無描述' }}"
-                                    data-locked="{% if box.Locked %}true{% else %}false{% endif %}"
-                                    onclick="openLockModal(this)">
-                                {% if box.Locked %}
-                                    <i class="bi bi-lock-fill"></i> 鎖定中
-                                {% else %}
-                                    <i class="bi bi-unlock"></i> 未鎖定
-                                {% endif %}
-                            </button>
+                                <a href="{% url 'material:item_list' %}?action=add&default_box={{ box.BoxID }}"
+                                   class="btn btn-sm btn-success">
+                                    <i class="bi bi-box-arrow-in-down"></i> 入庫
+                                </a>
+
+                                <form method="POST" action="{% url 'material:box_toggle_lock' %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="BoxID" value="{{ box.BoxID }}">
+                                    <input type="hidden" name="action" value="lock">
+                                    <button type="submit" class="btn btn-sm btn-secondary"
+                                            onclick="return confirm('確定鎖定容器 {{ box.BoxID }}？')">
+                                        <i class="bi bi-lock"></i> 鎖定
+                                    </button>
+                                </form>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -468,7 +497,6 @@
     </div>
 </div>
 
-
 <!-- ============================================================
      新增容器 Modal
      ============================================================ -->
@@ -484,7 +512,7 @@
                 <div class="mb-3">
                     <label for="BoxID" class="form-label">
                         容器編號 <span class="required">*</span>
-                        <span class="help-text">編號唯一，不可重複</span>
+                        <span class="help-text">編號唯一,不可重複</span>
                     </label>
                     <input type="text" class="form-control" id="BoxID" name="BoxID" required maxlength="50" placeholder="例如:BOX-001">
                 </div>
@@ -501,12 +529,29 @@
                     <label for="Description" class="form-label">描述<span class="help-text">備註該編號的用途</span></label>
                     <input type="text" class="form-control" id="Description" name="Description" maxlength="255" placeholder="例如：用於存放辦公室文具">
                 </div>
+
                 <div class="mb-3">
-                    <label for="Owner" class="form-label">負責人<span class="help-text">負責人姓名</span></label>
-                    <select class="form-select" id="Owner" name="Owner">
-                        <option value="">-- 請選擇人員 --</option>
-                    </select>
+                    <label for="OwnerDisplay" class="form-label">
+                        負責人 <span class="required">*</span>
+                        <span class="help-text">自動設定為當前登入使用者</span>
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="bi bi-person-circle"></i>
+                        </span>
+                        <input type="text"
+                               class="form-control"
+                               id="OwnerDisplay"
+                               value="{{ current_user_name }} ({{ current_user_id }})"
+                               readonly
+                               style="background-color:#e9ecef; cursor: not-allowed;">
+                    </div>
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        負責人無法修改，系統自動記錄為建立者
+                    </small>
                 </div>
+
                 <div class="mb-3">
                     <label for="Status" class="form-label">狀態<span class="help-text">容器當前狀態</span></label>
                     <select class="form-select" id="Status" name="Status">
@@ -524,7 +569,6 @@
         </form>
     </div>
 </div>
-
 
 <!-- ============================================================
      編輯容器 Modal
@@ -579,7 +623,6 @@
     </div>
 </div>
 
-
 <!-- ============================================================
      鎖定 / 解鎖 確認 Modal
      ============================================================ -->
@@ -619,6 +662,150 @@
     </div>
 </div>
 
+<!-- ============================================================
+     ✅ 容器詳細資料 Modal
+     ============================================================ -->
+<div id="boxDetailsModal" class="modal">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h2><i class="bi bi-box-seam me-2"></i>容器詳細資料</h2>
+            <button type="button" class="close" onclick="closeBoxDetailsModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- 容器基本資訊 -->
+            <div style="border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 20px; overflow: hidden;">
+                <div style="background: #f8f9fa; padding: 12px 18px; border-bottom: 1px solid #dee2e6;">
+                    <h6 style="margin: 0; font-weight: 600;">
+                        <i class="bi bi-info-circle me-2"></i>基本資訊
+                    </h6>
+                </div>
+                <div style="padding: 18px;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>容器編號：</strong><span id="detail-box-id">-</span></p>
+                            <p><strong>類別：</strong><span id="detail-category">-</span></p>
+                            <p><strong>描述：</strong><span id="detail-description">-</span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>負責人：</strong><span id="detail-owner">-</span></p>
+                            <p><strong>狀態：</strong><span id="detail-status">-</span></p>
+                            <p><strong>鎖定狀態：</strong><span id="detail-locked">-</span></p>
+                            <p><strong>建立日期：</strong><span id="detail-create-date">-</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 容器內物品列表 -->
+            <div style="border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden;">
+                <div style="background: #f8f9fa; padding: 12px 18px; border-bottom: 1px solid #dee2e6;">
+                    <h6 style="margin: 0; font-weight: 600;">
+                        <i class="bi bi-box me-2"></i>容器內物品
+                        <span class="badge bg-primary ms-2" id="items-count">0</span>
+                    </h6>
+                </div>
+                <div style="padding: 18px;">
+                    <!-- 載入中 -->
+                    <div id="box-items-loading" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">載入中...</span>
+                        </div>
+                        <p class="mt-2 text-muted">載入物品資料中...</p>
+                    </div>
+
+                    <!-- 物品列表 -->
+                    <div id="box-items-content" style="display: none;">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>物品編號</th>
+                                        <th>物品名稱</th>
+                                        <th>規格</th>
+                                        <th>數量</th>
+                                        <th>位置</th>
+                                        <th>最後更新</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="box-items-table">
+                                    <!-- 動態載入物品 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 空狀態 -->
+                    <div id="box-items-empty" style="display: none;">
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                            <p class="mt-2">此容器目前沒有物品</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-cancel" onclick="closeBoxDetailsModal()">
+                <i class="bi bi-x-circle me-1"></i>關閉
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     物品編輯 Modal（用於容器詳細頁面）
+     ============================================================ -->
+<div id="itemEditModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2><i class="bi bi-pencil-square me-2"></i>編輯物品</h2>
+            <button type="button" class="close" onclick="closeItemEditModal()">&times;</button>
+        </div>
+        <form method="post" id="itemEditForm">
+            {% csrf_token %}
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="item_edit_SN" class="form-label">物品序號</label>
+                    <input type="text" class="form-control" id="item_edit_SN" disabled style="background-color:#e9ecef;">
+                </div>
+                <div class="mb-3">
+                    <label for="item_edit_ItemName" class="form-label">物品名稱 *</label>
+                    <input type="text" class="form-control" id="item_edit_ItemName" name="ItemName" required>
+                </div>
+                <div class="mb-3">
+                    <label for="item_edit_Spec" class="form-label">規格</label>
+                    <textarea class="form-control" id="item_edit_Spec" name="Spec" rows="2"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="item_edit_BoxID" class="form-label">所在容器 *</label>
+                    <select class="form-select" id="item_edit_BoxID" name="BoxID" required>
+                        {% for box in boxes %}
+                        <option value="{{ box.BoxID }}">{{ box.BoxID }} - {{ box.Description|default:"無描述" }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="item_edit_Location" class="form-label">位置</label>
+                    <input type="text" class="form-control" id="item_edit_Location" name="Location">
+                </div>
+                <div class="mb-3">
+                    <label for="item_edit_Quantity" class="form-label">數量 *</label>
+                    <input type="number" class="form-control" id="item_edit_Quantity" name="Quantity" required min="0">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeItemEditModal()">
+                    <i class="bi bi-x-lg me-1"></i>取消
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>保存
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -645,21 +832,18 @@ async function loadUsersToSelect(selectElement, selectedValue = null) {
             throw new Error('使用者資料格式錯誤');
         }
 
-        // 清空現有選項（保留第一個「請選擇」選項）
         const firstOption = selectElement.options[0];
         selectElement.innerHTML = '';
         if (firstOption) {
             selectElement.appendChild(firstOption);
         }
 
-        // ✅ 添加所有使用者
         let addedCount = 0;
         data.users.forEach(user => {
             const option = document.createElement('option');
-            option.value = user.id;  // ✅ value 是工號
-            option.textContent = `${user.name} (${user.id})`; // ✅ 顯示是 姓名 (工號)
+            option.value = user.id;
+            option.textContent = `${user.name} (${user.id})`;
 
-            // 如果有指定選中值，則選中對應選項
             if (selectedValue && user.id === selectedValue) {
                 option.selected = true;
             }
@@ -682,25 +866,20 @@ async function loadUsersToSelect(selectElement, selectedValue = null) {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ DOMContentLoaded 觸發');
 
-    // ✅ 載入使用者列表到新增 Modal
     const ownerSelect = document.getElementById('Owner');
     if (ownerSelect) {
-        console.log('✅ 找到新增 Modal 的負責人下拉選單');
         loadUsersToSelect(ownerSelect).catch(err => {
             console.error('❌ 載入新增 Modal 使用者列表失敗:', err);
         });
     }
 
-    // ✅ 載入使用者列表到篩選條件
     const filterOwnerSelect = document.getElementById('filter_owner');
     if (filterOwnerSelect) {
-        console.log('✅ 找到篩選的負責人下拉選單');
         loadUsersToSelect(filterOwnerSelect).catch(err => {
             console.error('❌ 載入篩選使用者列表失敗:', err);
         });
     }
 
-    // 篩選欄位即時監聽
     ['filter_boxid'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('input', applyBoxFilter);
@@ -785,14 +964,10 @@ function clearBoxFilter() {
 // 新增容器 Modal
 // ========================================================
 function openAddModal() {
-    console.log('✅ openAddModal 被呼叫');
     const modal = document.getElementById('addBoxModal');
     if (modal) {
         modal.classList.add('show');
         document.body.style.overflow = 'hidden';
-        console.log('✅ Modal 已顯示');
-    } else {
-        console.error('❌ 找不到 addBoxModal');
     }
 }
 
@@ -809,31 +984,25 @@ function closeAddModal() {
 // 編輯容器 Modal
 // ========================================================
 function openEditModal(boxId, category, description, owner, status, locked) {
-    console.log('✅ openEditModal 被呼叫', {boxId, category, description, owner, status, locked});
+    console.log('✅ openEditModal', {boxId, category, description, owner, status});
 
-    // 設定表單 action 和基本欄位
-    document.getElementById('editBoxForm').action    = `/material/boxes/${boxId}/edit/`;
+    document.getElementById('editBoxForm').action    = `/material/box/${boxId}/edit/`;
     document.getElementById('editBoxID').value       = boxId;
     document.getElementById('editCategory').value    = category   || '';
     document.getElementById('editDescription').value = description || '';
     document.getElementById('editStatus').value      = status     || '';
 
-    // ✅ 載入使用者列表並選中當前負責人
     const ownerSelect = document.getElementById('editOwner');
     loadUsersToSelect(ownerSelect, owner).then(() => {
-        console.log('✅ 使用者列表載入完成，當前選中:', ownerSelect.value);
+        console.log('✅ 使用者列表載入完成');
     }).catch(err => {
         console.error('❌ 載入編輯 Modal 使用者列表失敗:', err);
     });
 
-    // 顯示 Modal
     const modal = document.getElementById('editBoxModal');
     if (modal) {
         modal.classList.add('show');
         document.body.style.overflow = 'hidden';
-        console.log('✅ 編輯 Modal 已顯示');
-    } else {
-        console.error('❌ 找不到 editBoxModal');
     }
 }
 
@@ -896,12 +1065,139 @@ function closeLockModal() {
 }
 
 // ========================================================
+// ✅ 容器詳細資料 Modal
+// ========================================================
+async function showBoxDetails(boxId) {
+    console.log('📦 顯示容器詳細資料:', boxId);
+
+    const modal = document.getElementById('boxDetailsModal');
+    modal.classList.add('show');
+    document.body.style.overflow = 'hidden';
+
+    document.getElementById('box-items-loading').style.display = 'block';
+    document.getElementById('box-items-content').style.display = 'none';
+    document.getElementById('box-items-empty').style.display = 'none';
+
+    try {
+        const response = await fetch(`/material/api/box/${boxId}/details/`);
+
+        if (!response.ok) {
+            throw new Error('無法載入容器資料');
+        }
+
+        const data = await response.json();
+        console.log('✅ 取得容器資料:', data);
+
+        document.getElementById('detail-box-id').textContent = data.box.BoxID || '-';
+        document.getElementById('detail-category').textContent = data.box.Category || '—';
+        document.getElementById('detail-description').textContent = data.box.Description || '—';
+        document.getElementById('detail-owner').textContent = data.box.Owner || '—';
+        document.getElementById('detail-status').textContent = data.box.Status || '使用中';
+        document.getElementById('detail-locked').innerHTML = data.box.Locked
+            ? '<span class="badge bg-danger">已鎖定</span>'
+            : '<span class="badge bg-success">未鎖定</span>';
+        document.getElementById('detail-create-date').textContent = data.box.CreateDate || '—';
+
+        document.getElementById('items-count').textContent = data.items.length;
+
+        document.getElementById('box-items-loading').style.display = 'none';
+
+        if (data.items.length > 0) {
+            const tbody = document.getElementById('box-items-table');
+            tbody.innerHTML = '';
+
+            data.items.forEach(item => {
+                const row = `
+                    <tr>
+                        <td>${item.SN}</td>
+                        <td>${item.ItemName}</td>
+                        <td>${item.Spec || '—'}</td>
+                        <td><span class="badge bg-primary">${item.Quantity}</span></td>
+                        <td>${item.Location || '—'}</td>
+                        <td>${item.UpdateTime || '—'}</td>
+                        <td>
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary"
+                                    style="padding: 2px 8px; font-size: 12px;"
+                                    onclick="openItemEditModal('${item.SN}', '${item.ItemName}', '${item.Spec || ''}', '${boxId}', '${item.Location || ''}', ${item.Quantity})">
+                                <i class="bi bi-pencil"></i> 編輯
+                            </button>
+                            <a href="/material/transaction/transfer/?sn=${item.SN}&source_box=${boxId}"
+                               class="btn btn-sm btn-outline-success" style="padding: 2px 8px; font-size: 12px;">
+                                <i class="bi bi-arrow-left-right"></i> 調撥
+                            </a>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+
+            document.getElementById('box-items-content').style.display = 'block';
+        } else {
+            document.getElementById('box-items-empty').style.display = 'block';
+        }
+
+    } catch (error) {
+        console.error('❌ 載入容器資料失敗:', error);
+        document.getElementById('box-items-loading').style.display = 'none';
+        showToast('載入容器資料失敗：' + error.message, true);
+    }
+}
+
+// ========================================================
+// ✅ 關閉容器詳細資料 Modal
+// ========================================================
+function closeBoxDetailsModal() {
+    console.log('🔒 關閉容器詳細資料 Modal');
+    const modal = document.getElementById('boxDetailsModal');
+    if (modal) {
+        modal.classList.remove('show');
+        document.body.style.overflow = 'auto';
+    }
+}
+
+// ========================================================
+// ✅ 物品編輯 Modal（從容器詳細頁面呼叫）
+// ========================================================
+function openItemEditModal(sn, itemName, spec, boxId, location, quantity) {
+    console.log('✏️ 開啟物品編輯 Modal:', {sn, itemName, spec, boxId, location, quantity});
+
+    document.getElementById('item_edit_SN').value = sn;
+    document.getElementById('item_edit_ItemName').value = itemName;
+    document.getElementById('item_edit_Spec').value = spec || '';
+    document.getElementById('item_edit_BoxID').value = boxId;
+    document.getElementById('item_edit_Location').value = location || '';
+    document.getElementById('item_edit_Quantity').value = quantity;
+
+    // 設置表單 action（注意是 items 有 s）
+    document.getElementById('itemEditForm').action = `/material/items/${sn}/edit/`;
+
+    // 顯示 modal
+    document.getElementById('itemEditModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+// ========================================================
+// ✅ 關閉物品編輯 Modal
+// ========================================================
+function closeItemEditModal() {
+    console.log('🔒 關閉物品編輯 Modal');
+    const modal = document.getElementById('itemEditModal');
+    if (modal) {
+        modal.classList.remove('show');
+        document.body.style.overflow = 'auto';
+    }
+}
+
+// ========================================================
 // 點擊外部遮蔽 / ESC 關閉
 // ========================================================
 window.onclick = function(event) {
     if (event.target === document.getElementById('addBoxModal'))  closeAddModal();
     if (event.target === document.getElementById('editBoxModal')) closeEditModal();
     if (event.target === document.getElementById('lockModal'))    closeLockModal();
+    if (event.target === document.getElementById('boxDetailsModal')) closeBoxDetailsModal();
+    if (event.target === document.getElementById('itemEditModal')) closeItemEditModal();
 };
 
 document.addEventListener('keydown', function(e) {
@@ -909,6 +1205,8 @@ document.addEventListener('keydown', function(e) {
         closeAddModal();
         closeEditModal();
         closeLockModal();
+        closeBoxDetailsModal();
+        closeItemEditModal();
     }
 });
 </script>
