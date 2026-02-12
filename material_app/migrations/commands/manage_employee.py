@@ -18,7 +18,7 @@ class Command(BaseCommand):
         parser.add_argument('action', type=str,
                             choices=['list', 'add', 'change_pw', 'activate', 'deactivate'],
                             help='操作類型')
-        parser.add_argument('--id',   type=str, help='打工號')
+        parser.add_argument('--id',   type=str, help='輸入工號')
         parser.add_argument('--name', type=str, help='員工姓名')
         parser.add_argument('--pw',   type=str, help='密碼')
 

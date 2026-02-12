@@ -6,7 +6,6 @@
 
 {% block content %}
 <style>
-
     .btn-info {
         background-color: #0dcaf0;
         color: white;
@@ -341,11 +340,15 @@
 <!-- Toast 通知容器 -->
 <div class="toast-container" id="toastContainer"></div>
 
-<!-- 頂部按鈕 -->
+<!-- ✅ 頂部按鈕 - 權限控制 -->
 <div class="d-flex justify-content-between align-items-center mb-3">
+    {% if is_admin or is_manager %}
     <button class="btn btn-add" onclick="openAddModal()">
         <i class="bi bi-plus-lg me-2"></i>新增容器
     </button>
+    {% else %}
+    <div></div>
+    {% endif %}
 </div>
 
 <!-- ===== 篩選面板 ===== -->
@@ -432,7 +435,7 @@
                         <td>{{ box.CreateDate|date:"Y-m-d H:i:s" }}</td>
 
                         <td>
-                            <!-- ✅ 詳細資料按鈕 -->
+                            <!-- ✅ 所有人都能查看詳細資料 -->
                             <button type="button"
                                     class="btn btn-sm btn-info"
                                     onclick="showBoxDetails('{{ box.BoxID }}')"
@@ -441,45 +444,75 @@
                             </button>
 
                             {% if box.Locked %}
-                                <!-- 已鎖定狀態 -->
+                                <!-- ========== 已鎖定狀態 ========== -->
                                 <span class="badge bg-danger">🔒 已鎖定</span>
+
+                                <!-- ❌ 只有 Admin 可以解鎖 (Manager 不可) -->
+                                {% if is_admin %}
                                 <form method="POST" action="{% url 'material:box_toggle_lock' %}" style="display:inline;">
                                     {% csrf_token %}
                                     <input type="hidden" name="BoxID" value="{{ box.BoxID }}">
                                     <input type="hidden" name="action" value="unlock">
-                                    <button type="submit" class="btn btn-sm btn-warning">
+                                    <button type="submit"
+                                            class="btn btn-sm btn-success"
+                                            onclick="return confirm('確定解鎖容器 {{ box.BoxID }}？')">
                                         <i class="bi bi-unlock"></i> 解鎖
                                     </button>
                                 </form>
+                                {% elif is_manager %}
+                                <!-- Manager 看到但無法解鎖 -->
+                                <button type="button"
+                                        class="btn btn-sm btn-secondary"
+                                        disabled
+                                        title="只有超級管理者可以解鎖">
+                                    <i class="bi bi-unlock"></i> 解鎖 (無權限)
+                                </button>
+                                {% endif %}
+
                             {% else %}
-                                <!-- 未鎖定狀態 -->
-                                <button type="button" class="btn btn-sm btn-primary"
+                                <!-- ========== 未鎖定狀態 ========== -->
+
+                                <!-- ✅ Admin + Manager 可以編輯 -->
+                                {% if is_admin or is_manager %}
+                                <button type="button" class="btn btn-sm btn-warning"
                                         onclick="openEditModal('{{ box.BoxID }}', '{{ box.Category }}', '{{ box.Description }}', '{{ box.Owner }}', '{{ box.Status }}')">
                                     <i class="bi bi-pencil"></i> 編輯
                                 </button>
+                                {% endif %}
 
+                                <!-- ❌ 只有 Admin 可以刪除 (Manager 不可) -->
+                                {% if is_admin %}
                                 <form method="POST" action="{% url 'material:box_delete' box.BoxID %}" style="display:inline;">
                                     {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-danger"
+                                    <button type="submit"
+                                            class="btn btn-sm btn-danger"
                                             onclick="return confirm('確定刪除容器 {{ box.BoxID }}？')">
                                         <i class="bi bi-trash"></i> 刪除
                                     </button>
                                 </form>
+                                {% endif %}
 
+                                <!-- ✅ Admin + Manager 可以入庫 -->
+                                {% if is_admin or is_manager %}
                                 <a href="{% url 'material:item_list' %}?action=add&default_box={{ box.BoxID }}"
                                    class="btn btn-sm btn-success">
                                     <i class="bi bi-box-arrow-in-down"></i> 入庫
                                 </a>
+                                {% endif %}
 
+                                <!-- ✅ Admin + Manager 都可以鎖定 -->
+                                {% if is_admin or is_manager %}
                                 <form method="POST" action="{% url 'material:box_toggle_lock' %}" style="display:inline;">
                                     {% csrf_token %}
                                     <input type="hidden" name="BoxID" value="{{ box.BoxID }}">
                                     <input type="hidden" name="action" value="lock">
-                                    <button type="submit" class="btn btn-sm btn-secondary"
-                                            onclick="return confirm('確定鎖定容器 {{ box.BoxID }}？')">
+                                    <button type="submit"
+                                            class="btn btn-sm btn-secondary"
+                                            onclick="return confirm('確定鎖定容器 {{ box.BoxID }}？{% if is_manager %}\n\n⚠️ 注意：Manager 鎖定後無法自行解鎖，需請 Admin 協助。{% endif %}')">
                                         <i class="bi bi-lock"></i> 鎖定
                                     </button>
                                 </form>
+                                {% endif %}
                             {% endif %}
                         </td>
                     </tr>
@@ -624,46 +657,7 @@
 </div>
 
 <!-- ============================================================
-     鎖定 / 解鎖 確認 Modal
-     ============================================================ -->
-<div id="lockModal" class="modal">
-    <div class="modal-content modal-sm">
-        <div class="modal-header lock-header-on" id="lockModalHeader">
-            <h2><i class="bi bi-lock-fill me-2" id="lockModalIcon"></i><span id="lockModalTitle">鎖定容器</span></h2>
-            <button type="button" class="close" onclick="closeLockModal()">&times;</button>
-        </div>
-        <form method="post" id="lockBoxForm" action="{% url 'material:box_toggle_lock' %}">
-            {% csrf_token %}
-            <input type="hidden" id="lock_BoxID"  name="BoxID"  value="">
-            <input type="hidden" id="lock_Action" name="action" value="">
-            <div class="modal-body">
-                <div class="lock-confirm-box">
-                    <div class="icon-circle red" id="lockIconCircle">
-                        <i class="bi bi-lock-fill" id="lockIconInner"></i>
-                    </div>
-                    <div class="info">
-                        <div class="box-id" id="lock_display_id">—</div>
-                        <div class="box-desc" id="lock_display_desc">—</div>
-                    </div>
-                </div>
-                <p id="lock_confirm_text" style="font-size:14px;color:#495057;margin-bottom:8px;"></p>
-                <div class="lock-warning">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                    <span id="lock_warning_text"></span>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-cancel" onclick="closeLockModal()"><i class="bi bi-x-lg me-1"></i>取消</button>
-                <button type="submit" class="btn btn-confirm-lock" id="lockConfirmBtn">
-                    <i class="bi bi-lock-fill me-1"></i>確認鎖定
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- ============================================================
-     ✅ 容器詳細資料 Modal
+     容器詳細資料 Modal
      ============================================================ -->
 <div id="boxDetailsModal" class="modal">
     <div class="modal-content modal-lg">
@@ -672,7 +666,6 @@
             <button type="button" class="close" onclick="closeBoxDetailsModal()">&times;</button>
         </div>
         <div class="modal-body">
-            <!-- 容器基本資訊 -->
             <div style="border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 20px; overflow: hidden;">
                 <div style="background: #f8f9fa; padding: 12px 18px; border-bottom: 1px solid #dee2e6;">
                     <h6 style="margin: 0; font-weight: 600;">
@@ -696,7 +689,6 @@
                 </div>
             </div>
 
-            <!-- 容器內物品列表 -->
             <div style="border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden;">
                 <div style="background: #f8f9fa; padding: 12px 18px; border-bottom: 1px solid #dee2e6;">
                     <h6 style="margin: 0; font-weight: 600;">
@@ -705,7 +697,6 @@
                     </h6>
                 </div>
                 <div style="padding: 18px;">
-                    <!-- 載入中 -->
                     <div id="box-items-loading" class="text-center py-4">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">載入中...</span>
@@ -713,7 +704,6 @@
                         <p class="mt-2 text-muted">載入物品資料中...</p>
                     </div>
 
-                    <!-- 物品列表 -->
                     <div id="box-items-content" style="display: none;">
                         <div class="table-responsive">
                             <table class="table table-hover table-sm">
@@ -728,14 +718,11 @@
                                         <th>操作</th>
                                     </tr>
                                 </thead>
-                                <tbody id="box-items-table">
-                                    <!-- 動態載入物品 -->
-                                </tbody>
+                                <tbody id="box-items-table"></tbody>
                             </table>
                         </div>
                     </div>
 
-                    <!-- 空狀態 -->
                     <div id="box-items-empty" style="display: none;">
                         <div class="text-center py-4 text-muted">
                             <i class="bi bi-inbox" style="font-size: 3rem;"></i>
@@ -754,7 +741,7 @@
 </div>
 
 <!-- ============================================================
-     物品編輯 Modal（用於容器詳細頁面）
+     物品編輯 Modal
      ============================================================ -->
 <div id="itemEditModal" class="modal">
     <div class="modal-content">
@@ -810,75 +797,43 @@
 
 {% block extra_js %}
 <script>
-// ========================================================
-// 載入使用者列表到下拉選單
-// ========================================================
-async function loadUsersToSelect(selectElement, selectedValue = null) {
-    console.log('🔄 開始載入使用者列表...', {selectElement: selectElement.id, selectedValue});
+// ✅ 從 Django 傳遞權限變數到 JavaScript
+const isAdmin = {{ is_admin|yesno:"true,false" }};
+const isManager = {{ is_manager|yesno:"true,false" }};
+const isEmployee = {{ is_employee|yesno:"true,false" }};
 
+console.log('🔐 權限狀態:', { isAdmin, isManager, isEmployee });
+
+// 載入使用者列表
+async function loadUsersToSelect(selectElement, selectedValue = null) {
     try {
         const response = await fetch('/material/api/users/');
-        console.log('📡 API 回應狀態:', response.status);
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
         const data = await response.json();
-        console.log('📦 收到使用者資料:', data);
-
-        if (!data.users || !Array.isArray(data.users)) {
-            console.error('❌ 資料格式錯誤:', data);
-            throw new Error('使用者資料格式錯誤');
-        }
+        if (!data.users || !Array.isArray(data.users)) throw new Error('使用者資料格式錯誤');
 
         const firstOption = selectElement.options[0];
         selectElement.innerHTML = '';
-        if (firstOption) {
-            selectElement.appendChild(firstOption);
-        }
+        if (firstOption) selectElement.appendChild(firstOption);
 
-        let addedCount = 0;
         data.users.forEach(user => {
             const option = document.createElement('option');
             option.value = user.id;
             option.textContent = `${user.name} (${user.id})`;
-
-            if (selectedValue && user.id === selectedValue) {
-                option.selected = true;
-            }
-
+            if (selectedValue && user.id === selectedValue) option.selected = true;
             selectElement.appendChild(option);
-            addedCount++;
         });
-
-        console.log(`✅ 成功載入 ${addedCount} 位使用者到下拉選單 ${selectElement.id}`);
-
     } catch (error) {
         console.error('❌ 載入使用者列表失敗:', error);
         showToast('無法載入使用者列表: ' + error.message, true);
     }
 }
 
-// ========================================================
-// DOMContentLoaded - 初始化
-// ========================================================
+// DOMContentLoaded
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('✅ DOMContentLoaded 觸發');
-
-    const ownerSelect = document.getElementById('Owner');
-    if (ownerSelect) {
-        loadUsersToSelect(ownerSelect).catch(err => {
-            console.error('❌ 載入新增 Modal 使用者列表失敗:', err);
-        });
-    }
-
     const filterOwnerSelect = document.getElementById('filter_owner');
-    if (filterOwnerSelect) {
-        loadUsersToSelect(filterOwnerSelect).catch(err => {
-            console.error('❌ 載入篩選使用者列表失敗:', err);
-        });
-    }
+    if (filterOwnerSelect) loadUsersToSelect(filterOwnerSelect);
 
     ['filter_boxid'].forEach(id => {
         const el = document.getElementById(id);
@@ -889,13 +844,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', applyBoxFilter);
     });
-
-    console.log('✅ 初始化完成');
 });
 
-// ========================================================
 // Toast 通知
-// ========================================================
 function showToast(message, isError) {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
@@ -908,168 +859,94 @@ function showToast(message, isError) {
     }, 2200);
 }
 
-// ========================================================
-// 篩選面板 折疊 / 展開
-// ========================================================
+// 篩選面板
 function toggleFilterPanel() {
-    const body  = document.getElementById('filterPanelBody');
+    const body = document.getElementById('filterPanelBody');
     const arrow = document.getElementById('filterToggleArrow');
     body.classList.toggle('hidden');
     arrow.classList.toggle('collapsed', body.classList.contains('hidden'));
 }
 
-// ========================================================
-// 篩選功能
-// ========================================================
 function applyBoxFilter() {
-    const valBoxID   = document.getElementById('filter_boxid').value.trim().toLowerCase();
-    const valCat     = document.getElementById('filter_category').value.trim();
-    const valOwner   = document.getElementById('filter_owner').value.trim();
-    const valStatus  = document.getElementById('filter_status').value.trim();
+    const valBoxID = document.getElementById('filter_boxid').value.trim().toLowerCase();
+    const valCat = document.getElementById('filter_category').value.trim();
+    const valOwner = document.getElementById('filter_owner').value.trim();
+    const valStatus = document.getElementById('filter_status').value.trim();
 
     const rows = document.querySelectorAll('.box-row');
     let visible = 0;
 
     rows.forEach(row => {
-        const boxid   = (row.dataset.boxid   || '').toLowerCase();
-        const cat     = row.dataset.category || '';
-        const owner   = row.dataset.owner    || '';
-        const status  = row.dataset.status   || '';
+        const boxid = (row.dataset.boxid || '').toLowerCase();
+        const cat = row.dataset.category || '';
+        const owner = row.dataset.owner || '';
+        const status = row.dataset.status || '';
 
         const match =
-            (!valBoxID  || boxid.includes(valBoxID))  &&
-            (!valCat    || cat === valCat)             &&
-            (!valOwner  || owner === valOwner)        &&
+            (!valBoxID || boxid.includes(valBoxID)) &&
+            (!valCat || cat === valCat) &&
+            (!valOwner || owner === valOwner) &&
             (!valStatus || status === valStatus);
 
         row.style.display = match ? '' : 'none';
         if (match) visible++;
     });
 
-    const countEl = document.getElementById('boxFilterCount');
-    countEl.innerHTML = `顯示 <strong>${visible}</strong> / ${rows.length} 筆`;
+    document.getElementById('boxFilterCount').innerHTML = `顯示 <strong>${visible}</strong> / ${rows.length} 筆`;
 }
 
 function clearBoxFilter() {
-    document.getElementById('filter_boxid').value    = '';
+    document.getElementById('filter_boxid').value = '';
     document.getElementById('filter_category').value = '';
-    document.getElementById('filter_owner').value    = '';
-    document.getElementById('filter_status').value   = '';
-
+    document.getElementById('filter_owner').value = '';
+    document.getElementById('filter_status').value = '';
     document.querySelectorAll('.box-row').forEach(r => r.style.display = '');
     document.getElementById('boxFilterCount').innerHTML = '';
 }
 
-// ========================================================
-// 新增容器 Modal
-// ========================================================
+// ✅ 新增容器 Modal - 加入權限檢查
 function openAddModal() {
-    const modal = document.getElementById('addBoxModal');
-    if (modal) {
-        modal.classList.add('show');
-        document.body.style.overflow = 'hidden';
+    if (!isAdmin && !isManager) {
+        showToast('您沒有權限新增容器', true);
+        return;
     }
-}
-
-function closeAddModal() {
-    const modal = document.getElementById('addBoxModal');
-    if (modal) {
-        modal.classList.remove('show');
-        document.body.style.overflow = 'auto';
-        document.querySelector('#addBoxModal form').reset();
-    }
-}
-
-// ========================================================
-// 編輯容器 Modal
-// ========================================================
-function openEditModal(boxId, category, description, owner, status, locked) {
-    console.log('✅ openEditModal', {boxId, category, description, owner, status});
-
-    document.getElementById('editBoxForm').action    = `/material/box/${boxId}/edit/`;
-    document.getElementById('editBoxID').value       = boxId;
-    document.getElementById('editCategory').value    = category   || '';
-    document.getElementById('editDescription').value = description || '';
-    document.getElementById('editStatus').value      = status     || '';
-
-    const ownerSelect = document.getElementById('editOwner');
-    loadUsersToSelect(ownerSelect, owner).then(() => {
-        console.log('✅ 使用者列表載入完成');
-    }).catch(err => {
-        console.error('❌ 載入編輯 Modal 使用者列表失敗:', err);
-    });
-
-    const modal = document.getElementById('editBoxModal');
-    if (modal) {
-        modal.classList.add('show');
-        document.body.style.overflow = 'hidden';
-    }
-}
-
-function closeEditModal() {
-    const modal = document.getElementById('editBoxModal');
-    if (modal) {
-        modal.classList.remove('show');
-        document.body.style.overflow = 'auto';
-    }
-}
-
-// ========================================================
-// 鎖定 / 解鎖 Modal
-// ========================================================
-function openLockModal(btn) {
-    const boxId    = btn.dataset.boxId;
-    const boxDesc  = btn.dataset.boxDesc;
-    const isLocked = btn.dataset.locked === 'true';
-
-    document.getElementById('lock_BoxID').value  = boxId;
-    document.getElementById('lock_Action').value = isLocked ? 'unlock' : 'lock';
-    document.getElementById('lock_display_id').textContent   = boxId;
-    document.getElementById('lock_display_desc').textContent = boxDesc;
-
-    const header      = document.getElementById('lockModalHeader');
-    const iconCircle  = document.getElementById('lockIconCircle');
-    const iconInner   = document.getElementById('lockIconInner');
-    const title       = document.getElementById('lockModalTitle');
-    const confirmText = document.getElementById('lock_confirm_text');
-    const warningText = document.getElementById('lock_warning_text');
-    const confirmBtn  = document.getElementById('lockConfirmBtn');
-
-    if (isLocked) {
-        header.className     = 'modal-header lock-header-off';
-        iconCircle.className = 'icon-circle green';
-        iconInner.className  = 'bi bi-unlock';
-        title.textContent    = '解鎖容器';
-        confirmText.textContent = `確定要將容器 ${boxId} 解鎖嗎？解鎖後該容器將可以進行調撥操作。`;
-        warningText.textContent = '請確認此操作是否經過授權。';
-        confirmBtn.className = 'btn btn-confirm-unlock';
-        confirmBtn.innerHTML = '<i class="bi bi-unlock me-1"></i>確認解鎖';
-    } else {
-        header.className     = 'modal-header lock-header-on';
-        iconCircle.className = 'icon-circle red';
-        iconInner.className  = 'bi bi-lock-fill';
-        title.textContent    = '鎖定容器';
-        confirmText.textContent = `確定要將容器 ${boxId} 鎖定嗎？鎖定後該容器將無法進行調撥操作。`;
-        warningText.textContent = '鎖定後,調撥功能將被禁止,請在鎖定前確認。';
-        confirmBtn.className = 'btn btn-confirm-lock';
-        confirmBtn.innerHTML = '<i class="bi bi-lock-fill me-1"></i>確認鎖定';
-    }
-
-    document.getElementById('lockModal').classList.add('show');
+    document.getElementById('addBoxModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
-function closeLockModal() {
-    document.getElementById('lockModal').classList.remove('show');
+function closeAddModal() {
+    document.getElementById('addBoxModal').classList.remove('show');
+    document.body.style.overflow = 'auto';
+    document.querySelector('#addBoxModal form').reset();
+}
+
+// ✅ 編輯容器 Modal - 加入權限檢查
+function openEditModal(boxId, category, description, owner, status) {
+    if (!isAdmin && !isManager) {
+        showToast('您沒有權限編輯容器', true);
+        return;
+    }
+
+    document.getElementById('editBoxForm').action = `/material/boxes/${boxId}/edit/`;
+    document.getElementById('editBoxID').value = boxId;
+    document.getElementById('editCategory').value = category || '';
+    document.getElementById('editDescription').value = description || '';
+    document.getElementById('editStatus').value = status || '';
+
+    const ownerSelect = document.getElementById('editOwner');
+    loadUsersToSelect(ownerSelect, owner);
+
+    document.getElementById('editBoxModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeEditModal() {
+    document.getElementById('editBoxModal').classList.remove('show');
     document.body.style.overflow = 'auto';
 }
 
-// ========================================================
-// ✅ 容器詳細資料 Modal
-// ========================================================
+// ✅ 容器詳細資料 Modal - 根據權限顯示操作按鈕
 async function showBoxDetails(boxId) {
-    console.log('📦 顯示容器詳細資料:', boxId);
-
     const modal = document.getElementById('boxDetailsModal');
     modal.classList.add('show');
     document.body.style.overflow = 'hidden';
@@ -1079,14 +956,12 @@ async function showBoxDetails(boxId) {
     document.getElementById('box-items-empty').style.display = 'none';
 
     try {
-        const response = await fetch(`/material/api/box/${boxId}/details/`);
 
-        if (!response.ok) {
-            throw new Error('無法載入容器資料');
-        }
+        // // ✅ 這個 API endpoint 保持不變,因為你的 urls.py 中是 'api/box/'
+        const response = await fetch(`/material/api/box/${boxId}/details/`);
+        if (!response.ok) throw new Error('無法載入容器資料');
 
         const data = await response.json();
-        console.log('✅ 取得容器資料:', data);
 
         document.getElementById('detail-box-id').textContent = data.box.BoxID || '-';
         document.getElementById('detail-category').textContent = data.box.Category || '—';
@@ -1099,14 +974,35 @@ async function showBoxDetails(boxId) {
         document.getElementById('detail-create-date').textContent = data.box.CreateDate || '—';
 
         document.getElementById('items-count').textContent = data.items.length;
-
         document.getElementById('box-items-loading').style.display = 'none';
 
         if (data.items.length > 0) {
             const tbody = document.getElementById('box-items-table');
             tbody.innerHTML = '';
 
+            // ✅ 根據權限決定顯示的操作按鈕
+            const canEdit = isAdmin || isManager;
+
             data.items.forEach(item => {
+                let actionButtons = '';
+
+                if (canEdit) {
+                    actionButtons = `
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                style="padding: 2px 8px; font-size: 12px;"
+                                onclick="openItemEditModal('${item.SN}', '${item.ItemName}', '${item.Spec || ''}', '${boxId}', '${item.Location || ''}', ${item.Quantity})">
+                            <i class="bi bi-pencil"></i> 編輯
+                        </button>
+                        <a href="/material/transaction/transfer/?sn=${item.SN}&source_box=${boxId}"
+                           class="btn btn-sm btn-outline-success" style="padding: 2px 8px; font-size: 12px;">
+                            <i class="bi bi-arrow-left-right"></i> 調撥
+                        </a>
+                    `;
+                } else {
+                    actionButtons = '<span class="text-muted small">僅查看</span>';
+                }
+
                 const row = `
                     <tr>
                         <td>${item.SN}</td>
@@ -1115,18 +1011,7 @@ async function showBoxDetails(boxId) {
                         <td><span class="badge bg-primary">${item.Quantity}</span></td>
                         <td>${item.Location || '—'}</td>
                         <td>${item.UpdateTime || '—'}</td>
-                        <td>
-                            <button type="button"
-                                    class="btn btn-sm btn-outline-primary"
-                                    style="padding: 2px 8px; font-size: 12px;"
-                                    onclick="openItemEditModal('${item.SN}', '${item.ItemName}', '${item.Spec || ''}', '${boxId}', '${item.Location || ''}', ${item.Quantity})">
-                                <i class="bi bi-pencil"></i> 編輯
-                            </button>
-                            <a href="/material/transaction/transfer/?sn=${item.SN}&source_box=${boxId}"
-                               class="btn btn-sm btn-outline-success" style="padding: 2px 8px; font-size: 12px;">
-                                <i class="bi bi-arrow-left-right"></i> 調撥
-                            </a>
-                        </td>
+                        <td>${actionButtons}</td>
                     </tr>
                 `;
                 tbody.innerHTML += row;
@@ -1144,23 +1029,17 @@ async function showBoxDetails(boxId) {
     }
 }
 
-// ========================================================
-// ✅ 關閉容器詳細資料 Modal
-// ========================================================
 function closeBoxDetailsModal() {
-    console.log('🔒 關閉容器詳細資料 Modal');
-    const modal = document.getElementById('boxDetailsModal');
-    if (modal) {
-        modal.classList.remove('show');
-        document.body.style.overflow = 'auto';
-    }
+    document.getElementById('boxDetailsModal').classList.remove('show');
+    document.body.style.overflow = 'auto';
 }
 
-// ========================================================
-// ✅ 物品編輯 Modal（從容器詳細頁面呼叫）
-// ========================================================
+// ✅ 物品編輯 Modal - 加入權限檢查
 function openItemEditModal(sn, itemName, spec, boxId, location, quantity) {
-    console.log('✏️ 開啟物品編輯 Modal:', {sn, itemName, spec, boxId, location, quantity});
+    if (!isAdmin && !isManager) {
+        showToast('您沒有權限編輯物品', true);
+        return;
+    }
 
     document.getElementById('item_edit_SN').value = sn;
     document.getElementById('item_edit_ItemName').value = itemName;
@@ -1168,34 +1047,21 @@ function openItemEditModal(sn, itemName, spec, boxId, location, quantity) {
     document.getElementById('item_edit_BoxID').value = boxId;
     document.getElementById('item_edit_Location').value = location || '';
     document.getElementById('item_edit_Quantity').value = quantity;
-
-    // 設置表單 action（注意是 items 有 s）
     document.getElementById('itemEditForm').action = `/material/items/${sn}/edit/`;
 
-    // 顯示 modal
     document.getElementById('itemEditModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
-// ========================================================
-// ✅ 關閉物品編輯 Modal
-// ========================================================
 function closeItemEditModal() {
-    console.log('🔒 關閉物品編輯 Modal');
-    const modal = document.getElementById('itemEditModal');
-    if (modal) {
-        modal.classList.remove('show');
-        document.body.style.overflow = 'auto';
-    }
+    document.getElementById('itemEditModal').classList.remove('show');
+    document.body.style.overflow = 'auto';
 }
 
-// ========================================================
-// 點擊外部遮蔽 / ESC 關閉
-// ========================================================
+// 點擊外部關閉
 window.onclick = function(event) {
-    if (event.target === document.getElementById('addBoxModal'))  closeAddModal();
+    if (event.target === document.getElementById('addBoxModal')) closeAddModal();
     if (event.target === document.getElementById('editBoxModal')) closeEditModal();
-    if (event.target === document.getElementById('lockModal'))    closeLockModal();
     if (event.target === document.getElementById('boxDetailsModal')) closeBoxDetailsModal();
     if (event.target === document.getElementById('itemEditModal')) closeItemEditModal();
 };
@@ -1204,7 +1070,6 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeAddModal();
         closeEditModal();
-        closeLockModal();
         closeBoxDetailsModal();
         closeItemEditModal();
     }

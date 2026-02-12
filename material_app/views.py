@@ -12,10 +12,9 @@ import json
 import secrets
 import requests
 import logging
-from .decorators import admin_required, manager_or_admin_required
+from .decorators import admin_required, manager_or_admin_required, employee_can_view
 from django.core.cache import cache
 from .models import MaterialItems, MaterialOverview, TransactionLog
-
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -24,8 +23,6 @@ from rest_framework import viewsets
 from rest_framework.response import Response
 from .permissions import MaterialBoxPermission, TransactionPermission
 
-
-
 logger = logging.getLogger(__name__)
 
 # 外部 API 設定
@@ -33,36 +30,34 @@ EXTERNAL_API_URL = 'http://192.168.0.10:9987/api/auth/login'
 API_TIMEOUT = 10  # 秒
 
 
-
-
-
-# ✅ 移除重複的 normalize_role 函數（已在 middleware 中定義）
-
 def index(request):
     """系統首頁 - 根據角色顯示不同權限"""
 
-    # ✅ 從 middleware 取得使用者資訊
+    # 從 middleware 取得使用者資訊
     user_info = getattr(request, 'user_info', {})
 
     current_user_id = user_info.get('id') or request.COOKIES.get('user_emp_id', '')
     current_user_name = user_info.get('username') or unquote(request.COOKIES.get('user_name', '未知使用者'))
 
-    # ✅ 從 middleware 取得的角色
+    # ✅ 從 cookie 讀取登入時間
+    login_time = unquote(request.COOKIES.get('login_time', '未知時間'))
+
+    # 從 middleware 取得的角色
     api_role = user_info.get('role_display', 'MMS_user')
 
-    # ✅ 角色中文顯示對應
+    # 角色中文顯示對應
     role_display_map = {
         'MMS_admin': '物料系統_超級管理者',
         'MMS_manager': '物料系統_管理者',
         'MMS_user': '物料系統_使用者',
     }
 
-    # ✅ 判斷使用者角色（使用 Django Groups）
+    # 判斷使用者角色（使用 Django Groups）
     is_admin = request.user.groups.filter(name='Admin').exists()
     is_manager = request.user.groups.filter(name='Manager').exists()
     is_employee = request.user.groups.filter(name='emp').exists()
 
-    # ✅ 設定角色顯示名稱和樣式
+    # 設定角色顯示名稱和樣式
     if is_admin:
         role_display = role_display_map.get(api_role, '物料系統_超級管理者')
         role_class = 'danger'
@@ -139,6 +134,7 @@ def index(request):
     context = {
         'current_user_id': current_user_id,
         'current_user_name': current_user_name,
+        'login_time': login_time,  # ✅ 新增登入時間
         'role_display': role_display,
         'role_class': role_class,
         'is_admin': is_admin,
@@ -153,21 +149,39 @@ def index(request):
         }
     }
 
-    logger.info(
-        f"📊 首頁載入 - 使用者: {current_user_name} ({current_user_id}), API角色: {api_role}, 顯示: {role_display}")
+    logger.info(f"📊 首頁載入 - 使用者: {current_user_name} ({current_user_id}), 登入時間: {login_time}")
 
     return render(request, 'material/index.html', context)
 
+
 # ==================== 容器 CRUD ====================
 
+@employee_can_view  # 所有人都可以看
 def box_list(request):
-    """容器列表頁面"""
+    """容器列表頁面 - 所有人可查看"""
     try:
-        containers = MaterialOverview.objects.all()
-        items = MaterialItems.objects.all()
-
         current_user_id = request.COOKIES.get('user_emp_id', '')
         current_user_name = unquote(request.COOKIES.get('user_name', ''))
+
+        # ✅ 判斷使用者角色（用於前端顯示權限）
+        is_admin = request.user.groups.filter(name='Admin').exists()
+        is_manager = request.user.groups.filter(name='Manager').exists()
+        is_employee = request.user.groups.filter(name='emp').exists()
+
+        # ✅ 根據用戶角色決定容器可見範圍
+        # ✅ 根據用戶角色決定容器可見範圍
+        if is_admin:
+            # Admin 可以看到所有容器
+            containers = MaterialOverview.objects.all()
+        elif is_manager:
+            # Manager 只能看到自己新增的容器
+            containers = MaterialOverview.objects.filter(Owner=current_user_id)
+        else:
+            # 一般員工 (emp) 只能看到自己新增的容器
+            containers = MaterialOverview.objects.filter(Owner=current_user_id)
+
+
+        items = MaterialItems.objects.all()
 
         token = request.COOKIES.get('auth_token')
         users_list = []
@@ -220,15 +234,20 @@ def box_list(request):
             'users_map': users_map,
             'current_user_id': current_user_id,
             'current_user_name': current_user_name,
+            # ✅ 傳遞角色信息給模板
+            'is_admin': is_admin,
+            'is_manager': is_manager,
+            'is_employee': is_employee,
         })
     except Exception as e:
         logger.exception("box_list error")
         return JsonResponse({'error': str(e)}, status=500)
 
 
-@manager_or_admin_required
+
+@manager_or_admin_required  # ✅ Admin + Manager
 def box_add(request):
-    """新增容器"""
+    """新增容器 - Admin 和 Manager 可用"""
     # ✅ 權限檢查：只有 Admin 和 Manager 可以新增
     if not request.user.groups.filter(name__in=['Admin', 'Manager']).exists():
         messages.error(request, '您沒有權限新增容器')
@@ -274,8 +293,10 @@ def box_add(request):
     })
 
 
+@manager_or_admin_required  # ✅ Admin + Manager
 def box_edit(request, box_id):
-    """編輯容器"""
+    """編輯容器  admin and manager 可用"""
+
     # ✅ 權限檢查：只有 Admin 和 Manager 可以編輯
     if not request.user.groups.filter(name__in=['Admin', 'Manager']).exists():
         messages.error(request, '您沒有權限編輯容器')
@@ -341,9 +362,10 @@ def box_edit(request, box_id):
         'current_user_name': current_user_name,
     })
 
-@admin_required
+
+@admin_required  # 只有 Admin (Manager 不可)
 def box_delete(request, box_id):
-    """刪除容器"""
+    """刪除容器-only admin 可用"""
     # ✅ 權限檢查：只有 Admin 可以刪除
     if not request.user.groups.filter(name='Admin').exists():
         messages.error(request, '您沒有權限刪除容器')
@@ -367,36 +389,61 @@ def box_delete(request, box_id):
     return redirect('material:box_list')
 
 
-def box_toggle_lock(request):
-    """鎖定 / 解鎖容器"""
-    # ✅ 權限檢查：只有 Admin 和 Manager 可以鎖定/解鎖
-    if not request.user.groups.filter(name__in=['Admin', 'Manager']).exists():
-        messages.error(request, '您沒有權限執行此操作')
-        return redirect('material:box_list')
+# material_app/views.py - box_toggle_lock 函數修正版
 
+def box_toggle_lock(request):
+    """
+    鎖定 / 解鎖容器
+    - 鎖定：Admin + Manager 可以執行
+    - 解鎖：只有 Admin 可以執行
+    """
     if request.method == 'POST':
         try:
             box_id = request.POST.get('BoxID')
             action = request.POST.get('action')
+
+            # ✅ 權限檢查
+            is_admin = request.user.groups.filter(name='Admin').exists()
+            is_manager = request.user.groups.filter(name='Manager').exists()
+
+            # 解鎖：只有 Admin 可以
+            if action == 'unlock':
+                if not is_admin:
+                    messages.error(request, '解鎖容器功能僅限超級管理者')
+                    logger.warning(f"權限不足: {request.user.username} 嘗試解鎖容器 {box_id}")
+                    return redirect('material:box_list')
+
+            # 鎖定：Admin 或 Manager 可以
+            elif action == 'lock':
+                if not (is_admin or is_manager):
+                    messages.error(request, '鎖定容器功能僅限管理者使用')
+                    logger.warning(f"權限不足: {request.user.username} 嘗試鎖定容器 {box_id}")
+                    return redirect('material:box_list')
+
+            # 執行鎖定/解鎖
             box = get_object_or_404(MaterialOverview, BoxID=box_id)
 
             if action == 'lock':
                 box.Locked = True
                 box.save()
                 messages.success(request, f'容器 {box_id} 已鎖定')
+                logger.info(f"✅ {request.user.username} 鎖定了容器 {box_id}")
             elif action == 'unlock':
                 box.Locked = False
                 box.save()
                 messages.success(request, f'容器 {box_id} 已解鎖')
+                logger.info(f"✅ {request.user.username} 解鎖了容器 {box_id}")
 
         except Exception as e:
             messages.error(request, f'鎖定操作失敗: {str(e)}')
+            logger.error(f"❌ 鎖定操作失敗: {e}")
 
     return redirect('material:box_list')
 
 
+@manager_or_admin_required  # ✅ Admin + Manager
 def box_checkin(request):
-    """入庫：將選定的物品數量累加到指定容器"""
+    """容器入庫- Admin 和 Manager 可用"""
     if request.method == 'POST':
         try:
             box_id = request.POST.get('BoxID')
@@ -469,8 +516,9 @@ def box_checkin(request):
 
 # ==================== 物品 CRUD ====================
 
+@employee_can_view  # ✅ 所有人都能看
 def item_list(request):
-    """物品列表"""
+    """物品列表 - 所有人可查看"""
     filter_box_id = request.GET.get('box_id', '')
 
     # ✅ 改用 '-UpdateTime' 排序，最新的在最上面
@@ -487,17 +535,30 @@ def item_list(request):
     current_user_id = request.COOKIES.get('user_emp_id', '')
     current_user_name = unquote(request.COOKIES.get('user_name', '未知使用者'))
 
+    # ✅ 判斷權限
+    is_admin = request.user.groups.filter(name='Admin').exists()
+    is_manager = request.user.groups.filter(name='Manager').exists()
+    is_employee = request.user.groups.filter(name='emp').exists()
+
+
+
     return render(request, 'material/item_list.html', {
         'items': items,
         'boxes': boxes,
         'current_user_id': current_user_id,
         'current_user_name': current_user_name,
         'filter_box_id': filter_box_id,
+        'is_admin': is_admin,          # ✅ 新增
+        'is_manager': is_manager,      # ✅ 新增
+        'is_employee': is_employee,    # ✅ 新增
+
+
     })
 
 
+@manager_or_admin_required  # ✅ Admin + Manager
 def item_add(request):
-    """新增物品"""
+    """新增物品 - Admin 和 Manager 可用"""
     current_user_id = request.COOKIES.get('user_emp_id', '')
     current_user_name = unquote(request.COOKIES.get('user_name', '未知使用者'))
 
@@ -544,8 +605,9 @@ def item_add(request):
     })
 
 
+@manager_or_admin_required  # ✅ Admin + Manager
 def item_edit(request, sn):
-    """編輯物品"""
+    """編輯物品 - Admin 和 Manager 可用"""
 
     # ✅ 用一個標記避免重複警告
     has_duplicate_warning = False
@@ -646,31 +708,27 @@ def item_edit(request, sn):
     })
 
 
+@manager_or_admin_required
 def item_delete(request, sn):
-    """刪除物品"""
+    """刪除物品 - Admin 和 Manager 可用"""
     if request.method == 'POST':
         try:
-            # ✅ 使用 filter + first() 處理可能的多筆記錄
             items = MaterialItems.objects.filter(SN=sn)
 
             if not items.exists():
                 messages.error(request, f'找不到序號為 {sn} 的物品')
                 return redirect('material:item_list')
 
-            # 如果有多筆，先警告
+
             if items.count() > 1:
                 messages.warning(
-                    request,
-                    f'警告：序號 {sn} 有 {items.count()} 筆記錄！'
-                    f'建議先使用合併命令清理：python manage.py merge_duplicate_items --sn "{sn}"'
+                     request,
+                    f'警告：序號 {sn} 有 {items.count()} 筆重複記錄！'
                 )
-                # 可以選擇只刪除第一筆，或者拒絕刪除
-                # 選項1：拒絕刪除
-                messages.error(request, '請先清理重複記錄再執行刪除操作')
-                return redirect('material:item_list')
-
-            # 只有一筆時才刪除
-            item = items.first()
+                item = items.order_by('id').first()  # ✅ 允許刪除第一筆
+                messages.info(request, f'系統將刪除最早建立的記錄（ID: {item.id}）')
+            else:
+                item = items.first()
 
             # 檢查是否有交易記錄引用
             from django.db import connection
@@ -690,10 +748,20 @@ def item_delete(request, sn):
 
             # 執行刪除
             item_name = item.ItemName
+            item_id = item.id
+            duplicate_count = items.count()
             item.delete()
 
-            messages.success(request, f'已成功刪除物品：{sn} - {item_name}')
-            print(f"✅ 刪除物品成功: {sn}")
+            # ✅ 成功訊息
+            if duplicate_count > 1:
+                messages.success(
+                    request,
+                    f'已成功刪除物品：{sn} - {item_name}（ID: {item_id}），剩餘 {duplicate_count - 1} 筆重複記錄'
+                )
+            else:
+                messages.success(request, f'已成功刪除物品：{sn} - {item_name}')
+
+            print(f"✅ 刪除物品成功: {sn} (ID: {item_id})")
 
         except Exception as e:
             messages.error(request, f'刪除失敗: {str(e)}')
@@ -703,23 +771,10 @@ def item_delete(request, sn):
 
         return redirect('material:item_list')
 
-    # GET 請求：顯示確認頁面（如果有的話）
-    try:
-        items = MaterialItems.objects.filter(SN=sn)
-        if items.count() > 1:
-            messages.warning(request, f'此序號有 {items.count()} 筆重複記錄')
-        item = items.first()
-    except Exception as e:
-        messages.error(request, f'找不到物品: {str(e)}')
-        return redirect('material:item_list')
-
-    return render(request, 'material/item_delete_confirm.html', {'item': item})
-
-
 # ==================== 調撥功能 ====================
-
+@manager_or_admin_required  # ✅ Admin + Manager
 def transaction_transfer(request):
-    """物品調撥"""
+    """物品調撥 - Admin 和 Manager 可用"""
     current_user_id = request.COOKIES.get('user_emp_id', '')
     current_user_name = unquote(request.COOKIES.get('user_name', '未知使用者'))
 
@@ -788,19 +843,22 @@ def transaction_transfer(request):
     })
 
 
-
-
-
-
+@employee_can_view
 def transaction_history(request):
-    """歷史紀錄"""
+    """交易記錄
+    - Admin/Manager: 看全部
+    - Employee: 只看自己的"""
     transactions = TransactionLog.objects.all().select_related('SN').order_by('-Timestamp')
 
     # ✅ 權限檢查：Employee 只能看自己的
     if request.user.groups.filter(name='emp').exists():
         current_user_id = request.COOKIES.get('user_emp_id', '')
         transactions = transactions.filter(Operator=current_user_id)
+        logger.info(f"Employee {current_user_id} 查看個人交易記錄")
+    else:
+        logger.info(f"Manager/Admin 查看全部交易記錄")
 
+    # ✅ 必須先定義 token 和 users_map！
     token = request.COOKIES.get('auth_token')
     users_map = {}
 
@@ -843,16 +901,7 @@ def transaction_history(request):
     })
 
 
-
-
-
-
-
-
-
 # ==================== 認證：API Login / Logout ====================
-
-# material_app/views.py
 
 @csrf_exempt
 def api_login(request):
@@ -888,6 +937,10 @@ def api_login(request):
                 if not token_from_api:
                     return render(request, 'material/login.html', {'error_msg': '認證服務回應格式錯誤'})
 
+                # ✅ 先設定預設值
+                user_name = emp_id
+                mms_role = None  # ✅ 儲存 MMS 角色
+
                 # ✅ 檢查 MMS 權限（只讀 roles，不讀 permissions）
                 try:
                     me_response = requests.get(
@@ -916,26 +969,61 @@ def api_login(request):
                                 'error_msg': '您沒有物料管理系統的存取權限，請聯絡系統管理員設定 MMS 角色'
                             })
 
-                        logger.info(f"✅ 用戶 {emp_id} MMS 權限驗證通過: {mms_roles}")
+                        # ✅ 選擇最高權限的 MMS 角色
+                        role_priority = {
+                            'MMS_admin': 1,
+                            'MMS_manager': 2,
+                            'MMS_user': 3,
+                        }
+                        mms_role = min(mms_roles, key=lambda r: role_priority.get(r, 999))
+
+                        logger.info(f"✅ 用戶 {emp_id} MMS 權限驗證通過: {mms_roles}, 最高權限: {mms_role}")
 
                 except Exception as e:
                     logger.error(f"❌ 權限驗證失敗: {e}")
-                    user_name = emp_id
+                    # 使用預設值繼續
+
+                # ✅ 記錄登入時間（台灣時間格式）
+                from datetime import datetime
+                current_time = datetime.now()
+
+                # 判斷上午/下午
+                hour = current_time.hour
+                period = '上午' if hour < 12 else '下午'
+
+                # 轉換為 12 小時制
+                hour_12 = hour if hour <= 12 else hour - 12
+                if hour_12 == 0:
+                    hour_12 = 12
+
+                # 格式化為 "2026/02/10 上午11:51:23"
+                login_time = current_time.strftime(f'%Y/%m/%d {period}{hour_12:02d}:%M:%S')
+
+                logger.info(f"⏰ 登入時間: {login_time}")
 
                 # 清除快取
                 cache_key = f'user_info_{emp_id}'
                 cache.delete(cache_key)
                 logger.info(f"🗑️ 清除快取: {cache_key}")
 
-                # 設定 cookie
-                expiry = timezone.now() + timedelta(hours=24)
+                # ✅✅✅ 關鍵修改：延長過期時間為 8 小時
+                expiry = timezone.now() + timedelta(hours=8)  # 原本是 24 小時，改為 8 小時
                 response_obj = redirect('material:index')
 
+                # ✅ 設定所有 cookie 過期時間為 8 小時
                 response_obj.set_cookie('auth_token', token_from_api, expires=expiry, httponly=True, samesite='Lax')
                 response_obj.set_cookie('user_emp_id', emp_id, expires=expiry, samesite='Lax')
                 response_obj.set_cookie('user_name', quote(user_name), expires=expiry, samesite='Lax')
+                response_obj.set_cookie('login_time', quote(login_time), expires=expiry, samesite='Lax')
 
-                logger.info(f"✅ 登入成功: {emp_id} ({user_name})")
+                # ✅✅✅ 關鍵新增：設定 Django Session 過期時間為 8 小時
+                request.session.set_expiry(8 * 60 * 60)  # 8 小時 = 28800 秒
+                request.session['user_emp_id'] = emp_id
+                request.session['user_name'] = user_name
+                if mms_role:
+                    request.session['mms_role'] = mms_role
+
+                logger.info(f"✅ 登入成功: {emp_id} ({user_name}) at {login_time}, Cookie 過期時間: {expiry}, Session 過期時間: 8 小時")
                 return response_obj
 
             elif response.status_code == 401:
@@ -948,8 +1036,6 @@ def api_login(request):
             return render(request, 'material/login.html', {'error_msg': '系統發生錯誤'})
 
     return JsonResponse({"error": "不支援的請求方法"}, status=405)
-
-
 
 @require_http_methods(["GET", "POST"])
 def api_logout(request):
@@ -967,6 +1053,7 @@ def api_logout(request):
     response.delete_cookie('user_emp_id')
     response.delete_cookie('user_name')
     response.delete_cookie('user_role')
+    response.delete_cookie('login_time')  # ✅ 清除登入時間
 
     return response
 
@@ -987,8 +1074,6 @@ def api_refresh(request):
     return JsonResponse({"error": "無效的 Token"}, status=401,
                         json_dumps_params={'ensure_ascii': False})
 
-
-# material/views.py 或 material/api_views.py
 
 def get_me(request):
     """GET /api/me - 取得當前登入使用者資訊"""
@@ -1067,9 +1152,6 @@ def get_box_details(request, box_id):
             'success': False,
             'error': str(e)
         }, status=500)
-
-
-
 
 
 def get_recent_transfers(request):
@@ -1214,7 +1296,7 @@ def get_my_transactions(request):
                 operator_display = operator_id
 
             data.append({
-                'id': trans.ID,
+                'id': trans.id,
                 'timestamp': trans.Timestamp.strftime('%Y-%m-%d %H:%M:%S'),
                 'item_sn': trans.SN.SN if trans.SN else '未知',
                 'item_name': trans.SN.ItemName if trans.SN else '未知',
@@ -1231,7 +1313,7 @@ def get_my_transactions(request):
         return JsonResponse({
             'success': True,
             'count': len(data),
-            'scope': 'personal',  # 標記這是個人記錄
+            'scope': 'personal',
             'transactions': data
         })
 
@@ -1303,7 +1385,7 @@ def get_all_transactions(request):
                 operator_display = operator_id
 
             data.append({
-                'id': trans.ID,
+                'id': trans.id,
                 'timestamp': trans.Timestamp.strftime('%Y-%m-%d %H:%M:%S'),
                 'item_sn': trans.SN.SN if trans.SN else '未知',
                 'item_name': trans.SN.ItemName if trans.SN else '未知',
@@ -1320,7 +1402,7 @@ def get_all_transactions(request):
         return JsonResponse({
             'success': True,
             'count': len(data),
-            'scope': 'all',  # 標記這是全部記錄
+            'scope': 'all',
             'transactions': data
         })
 

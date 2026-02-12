@@ -4,8 +4,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>權限不足</title>
+    <title>權限不足 - 物料管理系統</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -13,89 +20,285 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0;
+            padding: 20px;
         }
 
         .error-container {
             background: white;
-            border-radius: 15px;
-            padding: 50px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border-radius: 20px;
+            padding: 60px 50px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             text-align: center;
-            max-width: 500px;
+            max-width: 550px;
+            width: 100%;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ✅ 警告圖標區域 - 紅色漸層 */
+        .error-icon-wrapper {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 30px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 30px rgba(255, 107, 107, 0.4);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 10px 30px rgba(255, 107, 107, 0.4);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 15px 40px rgba(255, 107, 107, 0.6);
+            }
         }
 
         .error-icon {
-            font-size: 80px;
-            margin-bottom: 20px;
+            font-size: 60px;
+            color: white;
         }
 
+        /* ✅ 標題區域 - 紅色強調 */
         h1 {
-            color: #333;
-            margin-bottom: 10px;
+            color: #2d3748;
+            margin-bottom: 15px;
             font-size: 32px;
+            font-weight: 700;
         }
 
         .error-code {
-            color: #ff6b6b;
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 20px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            color: white;
+            font-size: 20px;
+            font-weight: 700;
+            margin: 0 auto 25px;
+            padding: 10px 25px;
+            border-radius: 25px;
+            display: inline-block;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
         }
 
-        p {
-            color: #666;
-            line-height: 1.6;
+        /* ✅ 警告訊息框 - 淡紅色背景 */
+        .error-message {
+            background: #fff5f5;
+            border-left: 4px solid #ff6b6b;
+            border-radius: 8px;
+            padding: 20px;
             margin-bottom: 30px;
+            text-align: left;
         }
 
+        .error-message-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #c53030;
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+
+        .error-message-title i {
+            font-size: 20px;
+        }
+
+        .error-message p {
+            color: #742a2a;
+            line-height: 1.7;
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .error-message ul {
+            margin: 12px 0 0 20px;
+            padding: 0;
+            color: #742a2a;
+        }
+
+        .error-message li {
+            margin: 6px 0;
+            line-height: 1.6;
+        }
+
+        /* ✅ 按鈕組 */
         .btn-group {
             display: flex;
             gap: 15px;
             justify-content: center;
+            flex-wrap: wrap;
         }
 
         .btn {
-            padding: 12px 24px;
+            padding: 14px 28px;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
             text-decoration: none;
-            transition: all 0.3s;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn i {
+            font-size: 18px;
         }
 
         .btn-primary {
-            background: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
 
         .btn-primary:hover {
-            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
         }
 
         .btn-secondary {
-            background: #e0e0e0;
-            color: #333;
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
         }
 
         .btn-secondary:hover {
-            background: #d0d0d0;
+            background: #f7fafc;
+            transform: translateY(-2px);
+        }
+
+        /* ✅ 聯繫資訊 */
+        .contact-info {
+            margin-top: 30px;
+            padding-top: 25px;
+            border-top: 2px solid #e2e8f0;
+        }
+
+        .contact-info p {
+            color: #718096;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .contact-info strong {
+            color: #2d3748;
+            font-weight: 600;
+        }
+
+        .admin-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+        .admin-link:hover {
+            color: #5568d3;
+            text-decoration: underline;
+        }
+
+        /* 響應式設計 */
+        @media (max-width: 600px) {
+            .error-container {
+                padding: 40px 30px;
+            }
+
+            h1 {
+                font-size: 26px;
+            }
+
+            .error-icon-wrapper {
+                width: 100px;
+                height: 100px;
+            }
+
+            .error-icon {
+                font-size: 50px;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
         }
     </style>
 </head>
 <body>
     <div class="error-container">
-        <div class="error-icon">🚫</div>
+        <!-- ✅ 警告圖標 - 紅色背景 -->
+        <div class="error-icon-wrapper">
+            <i class="bi bi-shield-x error-icon"></i>
+        </div>
+
+        <!-- 標題 -->
         <h1>權限不足</h1>
-        <div class="error-code">403 Forbidden</div>
-        <p>
-            抱歉，您沒有權限訪問此頁面或執行此操作。<br>
-            如需協助，請聯繫系統管理員。
-        </p>
+
+        <!-- ✅ 錯誤代碼 - 紅色徽章 -->
+        <div class="error-code">
+            <i class="bi bi-exclamation-triangle-fill"></i> 403 Forbidden
+        </div>
+
+        <!-- ✅ 錯誤訊息框 - 淡紅色背景 -->
+        <div class="error-message">
+            <div class="error-message-title">
+                <i class="bi bi-info-circle-fill"></i>
+                <span>無法訪問此資源</span>
+            </div>
+            <p>
+                抱歉，您沒有權限訪問此頁面或執行此操作。<br>
+                可能的原因包括：
+            </p>
+            <ul>
+                <li>您的帳號權限不足</li>
+                <li>此功能需要更高的權限等級</li>
+                <li>您嘗試訪問受限制的資源</li>
+            </ul>
+        </div>
+
+        <!-- 按鈕組 -->
         <div class="btn-group">
-            <a href="{% url 'material:index' %}" class="btn btn-primary">返回首頁</a>
-            <a href="javascript:history.back()" class="btn btn-secondary">返回上一頁</a>
+            <a href="{% url 'material:index' %}" class="btn btn-primary">
+                <i class="bi bi-house-door"></i>
+                返回首頁
+            </a>
+            <a href="javascript:history.back()" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i>
+                返回上一頁
+            </a>
+        </div>
+
+        <!-- ✅ 聯繫資訊 -->
+        <div class="contact-info">
+            <p>
+                <strong>需要協助？</strong><br>
+                請聯繫系統管理員或 IT 部門申請權限
+            </p>
+            <p style="font-size: 13px; color: #a0aec0;">
+                <i class="bi bi-envelope"></i>
+                管理員信箱: <a href="mailto:admin@example.com" class="admin-link">admin@example.com</a>
+            </p>
         </div>
     </div>
 </body>

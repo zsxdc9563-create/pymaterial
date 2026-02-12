@@ -432,11 +432,15 @@
 <!-- Toast 通知容器 -->
 <div class="toast-container" id="toastContainer"></div>
 
-<!-- 頂部按鈕 -->
+<!-- ✅ 頂部按鈕 - 僅對有權限的用戶顯示 -->
 <div class="d-flex justify-content-between align-items-center mb-3">
+    {% if is_admin or is_manager %}
     <button class="btn-add" onclick="openAddModal()">
         <i class="bi bi-plus-lg"></i> 新增物品
     </button>
+    {% else %}
+    <div></div>
+    {% endif %}
 </div>
 
 <!-- ===== 篩選面板 ===== -->
@@ -513,8 +517,10 @@
                         <td><span class="qty-value">{{ item.Quantity }}</span></td>
                         <td><span class="time-value">{{ item.UpdateTime|date:"Y-m-d H:i" }}</span></td>
                         <td>
+                            <!-- ✅ 根據權限顯示操作按鈕 -->
+                            {% if is_admin or is_manager %}
                             <div class="action-group">
-                                <!-- ✅ 編輯按鈕 - 使用 escapejs 過濾器 -->
+                                <!-- 編輯按鈕 -->
                                 <button type="button" class="btn-act btn-act-edit"
                                     onclick="openEditModal('{{ item.SN|escapejs }}', '{{ item.ItemName|escapejs }}', '{{ item.Spec|default:""|escapejs }}', '{{ item.BoxID.BoxID }}', '{{ item.Location|default:""|escapejs }}', {{ item.Quantity }})">
                                     <i class="bi bi-pencil"></i> 編輯
@@ -532,15 +538,9 @@
                                     <i class="bi bi-arrows-angle-contract"></i> 調撥
                                 </a>
                             </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="8">
-                            <div class="empty-state">
-                                <i class="bi bi-inbox"></i>
-                                <p>暫無物品資料</p>
-                            </div>
+                            {% else %}
+                            <span style="color: #6c757d; font-size: 13px;">僅供查看</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -721,6 +721,13 @@
 
 {% block extra_js %}
 <script>
+// ✅ 從 Django 傳遞權限變數到 JavaScript
+const isAdmin = {{ is_admin|yesno:"true,false" }};
+const isManager = {{ is_manager|yesno:"true,false" }};
+const isEmployee = {{ is_employee|yesno:"true,false" }};
+
+console.log('🔐 物品列表權限狀態:', { isAdmin, isManager, isEmployee });
+
 // ========================================================
 // 工具函數：取得 Cookie
 // ========================================================
@@ -847,9 +854,14 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ========================================================
-// 新增物品 Modal
+// ✅ 新增物品 Modal - 加入權限檢查
 // ========================================================
 function openAddModal() {
+    if (!isAdmin && !isManager) {
+        showToast('您沒有權限新增物品', true);
+        return;
+    }
+
     document.getElementById('addItemModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
@@ -868,9 +880,14 @@ function closeAddModal() {
 }
 
 // ========================================================
-// 編輯物品 Modal
+// ✅ 編輯物品 Modal - 加入權限檢查
 // ========================================================
 function openEditModal(sn, itemName, spec, boxId, location, quantity) {
+    if (!isAdmin && !isManager) {
+        showToast('您沒有權限編輯物品', true);
+        return;
+    }
+
     document.getElementById('editItemForm').action  = `/material/items/${sn}/edit/`;
     document.getElementById('edit_SN').value        = sn;
     document.getElementById('edit_ItemName').value  = itemName;
@@ -889,9 +906,14 @@ function closeEditModal() {
 }
 
 // ========================================================
-// 刪除物品 Modal
+// ✅ 刪除物品 Modal - 加入權限檢查
 // ========================================================
 function openDeleteModal(sn, itemName) {
+    if (!isAdmin && !isManager) {
+        showToast('您沒有權限刪除物品', true);
+        return;
+    }
+
     document.getElementById('delete_SN').textContent   = sn;
     document.getElementById('delete_Name').textContent = itemName;
     document.getElementById('deleteItemForm').action   = `/material/items/${sn}/delete/`;

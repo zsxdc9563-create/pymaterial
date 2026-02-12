@@ -1,21 +1,52 @@
+*****20260211
+
+
+
+請幫我在Z:\SecurityAudit2025 ，統計
+部門	工號	人員名單  
+CEO OFFICE	1001	李清瑞
+CEO OFFICE	1002	黃文嫺
+CEO OFFICE	1006	李昱霖
+CEO OFFICE	1018	李雅珍
+AD	1009	盧義祥
+RD	1016	李雅雯
+RD	1020	李泰佑
+RD	1025	胡瑋洋
+AD	1026	張瑞祺
+RD	1027	藍順章
+RD	1028	林俊宏
+AD	1029	何佳怡
+RD	1030	黃瑞霖
+RD	1035	林亮宇
+RD	1037	謝岷杰
+RD	1039	林俞晟
+AD	1042	劉懿萱
+RD	1045	林于聖
+AD	1048	蕭恩琳
+RD	1049	楊舒凱
+RD	1051	陳靜婕
+AD	1052	陳蔚禪  有誰未做，並統計資安盤查風險風險(path:file:///Z:/SecurityAudit2025/Reports_20260210_173833_1028_JEF/Reports/%E5%A0%B1%E5%91%8A.html
+
+
+
+
+
+
 ****20260210
 
 
-1. 1035 已改角色 but display super admin
+
+1. 1035 已改角色 but display super admin(ok)
+
+
 2.容器list 三層權限 design
 
 3.login time must to locked
 
 
-
-
 ***20260609
 
 你需要的是新增兩個 API 端點來區分「看自己的記錄」和「看所有人的記錄」。
-
-
-
-
 
 
 
