@@ -1,375 +1,226 @@
-<!-- templates/material/base.html -->
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}物料管理系統{% endblock %}</title>
-
-    <!-- Bootstrap 5 CSS -->
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-        body {
-            background-color: #f4f6f9;
+        :root {
+            --sidebar-width: 260px;
+            --primary-gradient: linear-gradient(135deg, #667eea, #764ba2);
+            --bg-light: #f8f9fa;
         }
 
-        .sidebar {
-            min-height: 100vh;
-            background: linear-gradient(180deg, #1e3c72 0%, #2a5298 100%);
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        body {
+            font-family: 'Inter', "Microsoft JhengHei", sans-serif;
+            background-color: var(--bg-light);
+            overflow-x: hidden;
+        }
+
+        #sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            background: #fff;
+            border-right: 1px solid #e5e7eb;
+            z-index: 1000;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
         }
 
         .sidebar-header {
-            color: #ffffff;
-            font-weight: 600;
-            padding: 20px 15px;
-            margin: 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            background: rgba(0,0,0,0.1);
-        }
-
-        .sidebar .nav {
-            padding-top: 10px;
-        }
-
-        .sidebar .nav-link {
-            color: rgba(255, 255, 255, 0.8);
-            padding: 12px 20px;
-            margin: 5px 10px;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-            font-weight: 500;
-        }
-
-        .sidebar .nav-link:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-            color: #ffffff;
-            transform: translateX(5px);
-        }
-
-        .sidebar .nav-link.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white !important;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-
-        .sidebar .nav-link i {
-            font-size: 1.1rem;
-            width: 24px;
-            text-align: center;
-        }
-
-        /* 使用者資訊區塊 */
-        .user-info-container {
-            padding: 15px;
-            margin: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
+            padding: 20px;
+            background: var(--primary-gradient);
             color: white;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .user-info-left {
-            display: flex;
-            align-items: center;
-            flex: 1;
-        }
-
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            font-weight: 700;
             font-size: 1.2rem;
-            font-weight: bold;
-            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
             flex-shrink: 0;
         }
 
-        .user-details {
+        .sidebar-nav {
             flex: 1;
-            min-width: 0; /* 防止文字溢出 */
+            display: flex;
+            flex-direction: column;
+            padding: 12px 0;
+            overflow-y: auto;
         }
 
-        .user-name {
-            font-weight: 600;
-            font-size: 0.95rem;
-            margin-bottom: 3px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+        .nav-link {
+            padding: 12px 20px;
+            color: #4b5563;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s;
+            text-decoration: none;
         }
 
-        .user-id {
-            font-size: 0.85rem;
-            color: rgba(255, 255, 255, 0.85);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+        .nav-link:hover {
+            background: #f3f4f6;
+            color: #4f46e5;
         }
 
-        .btn-logout {
-            background: rgba(220, 53, 69, 0.8);
-            color: white;
+        .nav-link.active {
+            background: #eef2ff;
+            color: #4338ca;
+            border-right: 4px solid #4338ca;
+        }
+
+        /* 登出按鈕樣式跟 nav-link 一致 */
+        .logout-btn {
+            padding: 12px 20px;
+            color: #dc3545;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s;
+            background: none;
             border: none;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            transition: all 0.3s ease;
-            flex-shrink: 0;
-            margin-left: 8px;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            margin-top: auto;
         }
 
-        .btn-logout:hover {
-            background: rgba(220, 53, 69, 1);
-            transform: translateY(-2px);
+        .logout-btn:hover {
+            background: #fff5f5;
+            color: #b91c1c;
         }
 
-        main {
-            padding: 25px;
+        #main-content {
+            margin-left: var(--sidebar-width);
+            padding: 24px;
+            min-height: 100vh;
         }
 
-        .page-header {
-            background: white;
-            padding: 20px 25px;
-            border-radius: 10px;
-            margin-bottom: 25px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            border-left: 4px solid #667eea;
+        .page-header { margin-bottom: 24px; }
+        .page-title { font-weight: 700; color: #111827; }
+
+        .top-navbar {
+            display: none;
+            background: #fff;
+            padding: 10px 20px;
+            border-bottom: 1px solid #e5e7eb;
         }
 
-        .page-header h1 {
-            color: #2c3e50;
-            font-size: 1.8rem;
-            font-weight: 600;
-            margin: 0;
+        @media (max-width: 992px) {
+            #sidebar { margin-left: calc(-1 * var(--sidebar-width)); }
+            #sidebar.active { margin-left: 0; }
+            #main-content { margin-left: 0; }
+            .top-navbar { display: flex; justify-content: space-between; align-items: center; }
         }
 
-        /* 美化卡片 */
         .card {
             border: none;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
 
-        /* 美化按鈕 */
-        .btn {
-            border-radius: 6px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-
-        /* 美化提示訊息 */
-        .alert {
-            border: none;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-
-        /* 分隔線 */
-        .sidebar-divider {
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            margin: 15px 10px;
-        }
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 2000; }
     </style>
-
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- 側邊欄 -->
-            <nav class="col-md-2 d-md-block sidebar collapse">
-                <div class="position-sticky pt-0">
-                    <!-- 系統標題（可點擊返回首頁） -->
-<a href="{% url 'material:index' %}" style="text-decoration: none; color: inherit;">
-    <h5 class="sidebar-header" style="cursor: pointer; transition: background 0.3s;">
-        <i class="bi bi-boxes me-2"></i>物料管理系統
-    </h5>
-</a>
 
-
-                    <!-- 使用者資訊 -->
-    <div class="user-info-container">
-        <div class="user-info-left">
-            <div class="user-avatar">
-                <i class="bi bi-person-circle"></i>
+    <nav id="sidebar">
+        <a href="{% url 'material:index' %}" style="text-decoration:none;">
+            <div class="sidebar-header">
+                <i class="bi bi-box-seam-fill"></i>
+                <span>物料管理系統</span>
             </div>
-        <div class="user-details">
-            <div class="user-name">工號: <span id="currentUserEmpId">載入中...</span></div>
-            <div class="user-id">姓名: <span id="currentUserName">載入中...</span></div>
+        </a>
+        <div class="sidebar-nav">
+            <a href="{% url 'material:box_list' %}" class="nav-link {% if request.resolver_match.url_name == 'box_list' %}active{% endif %}">
+                <i class="bi bi-grid-1x2"></i> 箱子列表
+            </a>
+            <a href="{% url 'material:project_list' %}" class="nav-link ps-5 {% if request.resolver_match.url_name == 'project_list' %}active{% endif %}" style="font-size:0.9rem;">
+                <i class="bi bi-kanban"></i> 專案管理
+            </a>    
+            <a href="{% url 'material:material_list' %}" class="nav-link {% if request.resolver_match.url_name == 'material_list' %}active{% endif %}">
+                <i class="bi bi-stack"></i> 物料庫存
+            </a>            
+            <a href="{% url 'material:transaction_history' %}" class="nav-link {% if request.resolver_match.url_name == 'transaction_history' %}active{% endif %}">
+                <i class="bi bi-clock-history"></i> 交易記錄
+            </a>
+            <a href="{% url 'material:transaction_transfer' %}" class="nav-link {% if request.resolver_match.url_name == 'transaction_transfer' %}active{% endif %}">
+                <i class="bi bi-arrow-left-right"></i> 物品調撥
+            </a>
+
+            <hr class="mx-3 my-2 text-muted">
+
+            <!-- 登出 -->
+            <form method="POST" action="{% url 'material:logout' %}" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="logout-btn">
+                    <i class="bi bi-box-arrow-right"></i> 登出
+                </button>
+            </form>
         </div>
-    </div>
-    <button onclick="logout()" class="btn-logout" title="登出">
-        <i class="bi bi-box-arrow-right"></i>
-    </button>
-</div>
+    </nav>
 
-                    <div class="sidebar-divider"></div>
-
-                    <!-- 導航選單 -->
-                    <ul class="nav flex-column">
-
-                        <!-- ✅ 新增：首頁連結 -->
-                    <li class="nav-item">
-                    <a class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}"
-                        href="{% url 'material:index' %}">
-                        <i class="bi bi-house-door me-2"></i>系統首頁
-                    </a>
-                    </li>
-
-
-
-
-
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.resolver_match.url_name == 'box_list' %}active{% endif %}"
-                               href="{% url 'material:box_list' %}">
-                                <i class="bi bi-box-seam me-2"></i>容器列表
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.resolver_match.url_name == 'item_list' %}active{% endif %}"
-                               href="{% url 'material:item_list' %}">
-                                <i class="bi bi-list-ul me-2"></i>物品列表
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.resolver_match.url_name == 'transaction_transfer' %}active{% endif %}"
-                               href="{% url 'material:transaction_transfer' %}">
-                                <i class="bi bi-arrow-left-right me-2"></i>物品調撥
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.resolver_match.url_name == 'transaction_history' %}active{% endif %}"
-                               href="{% url 'material:transaction_history' %}">
-                                <i class="bi bi-clock-history me-2"></i>歷史紀錄
-                            </a>
-                        </li>
-                    </ul>
-
-                    <div class="sidebar-divider"></div>
-
-                    <!-- 登出按鈕（底部） -->
-                    <div class="px-3 pb-3">
-                        <button onclick="logout()" class="btn btn-outline-light w-100">
-                            <i class="bi bi-box-arrow-left me-2"></i>登出系統
-                        </button>
-                    </div>
-                </div>
-            </nav>
-
-            <!-- 主要內容區 -->
-            <main class="col-md-10 ms-sm-auto">
-                <div class="page-header">
-                    <h1>{% block page_title %}{% endblock %}</h1>
-                </div>
-
-                <!-- 訊息提示 -->
-                {% if messages %}
-                    {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                        <i class="bi bi-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                    {% endfor %}
-                {% endif %}
-
-                {% block content %}{% endblock %}
-            </main>
+    <div id="main-content">
+        <div class="top-navbar mb-3 rounded shadow-sm">
+            <button class="btn btn-outline-secondary btn-sm" onclick="toggleSidebar()">
+                <i class="bi bi-list"></i> 選單
+            </button>
+            <span class="fw-bold">MMS 系統</span>
+            <div></div>
         </div>
+
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <h3 class="page-title">{% block page_title %}控制台{% endblock %}</h3>
+            <div class="user-info d-none d-md-block text-muted small">
+                <i class="bi bi-person-circle"></i> {{ request.user.first_name|default:request.user.username }}
+            </div>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
     </div>
 
-    <!-- Bootstrap 5 JS Bundle -->
+    <div class="toast-container" id="globalToastContainer"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
     <script>
-    // ✅ 讀取 Cookie 的函數
-    function getCookie(name) {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(';').shift();
-        return null;
-    }
-
-    // ✅ 顯示使用者資訊
-    document.addEventListener('DOMContentLoaded', function() {
-        const empId = getCookie('user_emp_id');
-        const userName = getCookie('user_name');
-
-        const nameElement = document.getElementById('currentUserName');
-        const idElement = document.getElementById('currentUserEmpId');
-
-        if (empId && empId !== 'undefined' && empId !== 'null') {
-            idElement.textContent = empId;
-        } else {
-            idElement.textContent = '未登入';
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('active');
         }
 
-        if (userName && userName !== 'undefined' && userName !== 'null') {
-            nameElement.textContent = decodeURIComponent(userName);
-        } else {
-            nameElement.textContent = '未設定';
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('globalToastContainer');
+            const toastHtml = `
+                <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0 show" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">${message}</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', toastHtml);
+            setTimeout(() => container.lastElementChild.remove(), 3000);
         }
-    });
-
-    // ✅ 全域函數: 載入使用者列表到下拉選單
-async function loadUsersToSelect(selectElement, selectedValue = null) {
-    try {
-        const response = await fetch('/material/api/users/');
-        if (!response.ok) throw new Error('Failed to fetch users');
-
-        const data = await response.json();
-
-        // 清空現有選項
-        selectElement.innerHTML = '<option value="">-- 請選擇人員 --</option>';
-
-        // 填充使用者選項 (API 已過濾離職員工)
-        if (data.users && data.users.length > 0) {
-            data.users.forEach(user => {
-                const option = document.createElement('option');
-                option.value = user.name;
-                option.textContent = `${user.name} (${user.id})`;
-
-                if (selectedValue && user.name === selectedValue) {
-                    option.selected = true;
-                }
-
-                selectElement.appendChild(option);
-            });
-        } else {
-            selectElement.innerHTML = '<option value="">無可用人員</option>';
-        }
-    } catch (error) {
-        console.error('載入使用者列表失敗:', error);
-        selectElement.innerHTML = '<option value="">載入失敗</option>';
-    }
-}
-
-
-    // 登出函數
-    function logout() {
-        if (confirm('確定要登出嗎？')) {
-            window.location.href = '{% url "material:logout" %}';
-        }
-    }
-</script>
-
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

@@ -1,0 +1,413 @@
+{% extends 'material/base.html' %}
+
+{% block title %}物品列表 - 物料管理系統{% endblock %}
+{% block page_title %}物品列表{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-panel { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 18px; overflow: hidden; }
+    .filter-panel-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 18px; background: #f8f9fa; border-bottom: 1px solid #dee2e6; cursor: pointer; user-select: none; }
+    .filter-panel-header h6 { margin: 0; font-size: 14px; font-weight: 600; color: #495057; }
+    .filter-panel-header .toggle-arrow { font-size: 12px; color: #6c757d; transition: transform 0.2s; }
+    .filter-panel-header .toggle-arrow.collapsed { transform: rotate(-90deg); }
+    .filter-panel-body { padding: 16px 18px 14px; }
+    .filter-panel-body.hidden { display: none; }
+    .filter-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+    .filter-group { flex: 1 1 150px; max-width: 220px; }
+    .filter-group label { display: block; font-size: 13px; font-weight: 600; color: #495057; margin-bottom: 5px; }
+    .filter-group input, .filter-group select { width: 100%; padding: 7px 10px; border: 1px solid #ced2d8; border-radius: 5px; font-size: 14px; background: #fff; }
+    .filter-actions { display: flex; gap: 8px; align-items: center; margin-top: 14px; }
+    .btn-filter-clear { background: #6c757d; color: #fff; border: none; border-radius: 5px; padding: 7px 16px; font-size: 14px; cursor: pointer; }
+    .filter-count-text { font-size: 13px; color: #6c757d; margin-left: 8px; }
+    .filter-count-text strong { color: #667eea; }
+
+    .btn-add { background-color: #198754; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-add:hover { background-color: #157347; color: white; }
+
+    .item-table-wrap { border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden; }
+    .item-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .item-table thead { background: #f3f4f6; }
+    .item-table thead th { padding: 11px 14px; text-align: left; font-weight: 600; color: #374151; border-bottom: 2px solid #e5e7eb; }
+    .item-table th:nth-child(6), .item-table td:nth-child(6),
+    .item-table th:nth-child(7), .item-table td:nth-child(7),
+    .item-table th:nth-child(8), .item-table td:nth-child(8) { text-align: right; padding-right: 25px; }
+    .item-table tbody tr { border-bottom: 1px solid #eee; transition: background 0.15s; }
+    .item-table tbody tr:hover { background: #f9fafb; }
+    .item-table td { padding: 10px 14px; vertical-align: middle; }
+
+    .sn-code { font-weight: 700; color: #1a73e8; }
+    .badge-box { background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; border-radius: 5px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
+    .price-value { color: #059669; font-weight: 600; }
+    .total-price-value { color: #667eea; font-weight: 700; }
+    .empty-val { color: #9ca3af; font-weight: 400; }
+
+    .action-group { display: flex; gap: 6px; align-items: center; }
+    .btn-act { padding: 5px 10px; font-size: 12px; border-radius: 4px; border: none; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+    .btn-act-edit     { background: #fd7e14; color: #fff; }
+    .btn-act-transfer { background: #198754; color: #fff; }
+    .btn-act-out      { background: #dc3545; color: #fff; }
+    .btn-act-delete   { background: #6c757d; color: #fff; }
+
+    .modal-custom { display: none; position: fixed; z-index: 1050; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); overflow-y: auto; }
+    .modal-custom.show { display: block; }
+    .modal-custom-content { background-color: #fff; margin: 3% auto; border-radius: 10px; width: 90%; max-width: 650px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); animation: slideDown 0.3s ease-out; }
+    @keyframes slideDown { from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .modal-custom-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 18px 25px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center; }
+    .modal-custom-header.header-warning { background: linear-gradient(135deg, #fd7e14 0%, #e8590c 100%); }
+    .modal-custom-header.header-danger  { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); }
+    .modal-custom-header.header-out     { background: linear-gradient(135deg, #dc3545 0%, #9b1c1c 100%); }
+    .modal-close { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
+    .modal-custom-body { padding: 25px; }
+    .modal-custom-footer { padding: 15px 25px; background: #f8f9fa; border-top: 1px solid #dee2e6; border-radius: 0 0 10px 10px; display: flex; justify-content: flex-end; gap: 10px; }
+
+    .stock-display { font-size: 2rem; font-weight: 700; color: #198754; text-align: center; padding: 10px; background: #f0fff4; border-radius: 8px; margin-bottom: 16px; }
+    .stock-display.low { color: #dc3545; background: #fff5f5; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <button class="btn-add" onclick="openAddModal()">
+        <i class="bi bi-plus-lg"></i> 新增物品
+    </button>
+</div>
+
+<!-- 篩選面板 -->
+<div class="filter-panel">
+    <div class="filter-panel-header" onclick="toggleFilterPanel()">
+        <h6><i class="bi bi-funnel me-2"></i>篩選條件</h6>
+        <span class="toggle-arrow" id="filterToggleArrow">▼</span>
+    </div>
+    <div class="filter-panel-body" id="filterPanelBody">
+        <div class="filter-row">
+            <div class="filter-group">
+                <label>物品序號</label>
+                <input type="text" id="filter_sn" placeholder="搜尋序號..." onkeyup="applyFilter()">
+            </div>
+            <div class="filter-group">
+                <label>物品名稱</label>
+                <input type="text" id="filter_name" placeholder="搜尋名稱..." onkeyup="applyFilter()">
+            </div>
+            <div class="filter-group">
+                <label>所在容器</label>
+                <select id="filter_box" onchange="applyFilter()">
+                    <option value="">-- 全部 --</option>
+                    {% for box in boxes %}
+                    <option value="{{ box.BoxID }}">{{ box.BoxID }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="filter-actions">
+            <button class="btn-filter-clear" onclick="clearFilter()">清除篩選</button>
+            <span class="filter-count-text" id="filter_count"></span>
+        </div>
+    </div>
+</div>
+
+<!-- 物品列表 -->
+<div class="card">
+    <div class="item-table-wrap">
+        <table class="item-table">
+            <thead>
+                <tr>
+                    <th>序號</th>
+                    <th>物品名稱</th>
+                    <th>規格</th>
+                    <th>容器</th>
+                    <th>位置</th>
+                    <th>數量</th>
+                    <th>單價</th>
+                    <th>總價</th>
+                    <th>更新時間</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr class="item-row"
+                    data-sn="{{ item.SN }}"
+                    data-name="{{ item.ItemName }}"
+                    data-box="{{ item.BoxID.BoxID }}"
+                    data-location="{{ item.Location|default:'' }}">
+                    <td><span class="sn-code">{{ item.SN }}</span></td>
+                    <td>{{ item.ItemName }}</td>
+                    <td class="text-muted">{{ item.Spec|default:"—" }}</td>
+                    <td><span class="badge-box">{{ item.BoxID.BoxID }}</span></td>
+                    <td class="text-muted">{{ item.Location|default:"—" }}</td>
+                    <td><strong>{{ item.Quantity }}</strong></td>
+                    <td>{% if item.Price %}<span class="price-value">{{ item.Price }}</span>{% else %}<span class="empty-val">—</span>{% endif %}</td>
+                    <td>{% if item.Price %}<span class="total-price-value">{{ item.get_total_price }}</span>{% else %}<span class="empty-val">—</span>{% endif %}</td>
+                    <td style="font-size: 12px; color: #6c757d;">{{ item.UpdateTime|date:"m/d H:i" }}</td>
+                    <td>
+                        <div class="action-group">
+                            <!-- 編輯 -->
+                            <button class="btn-act btn-act-edit"
+                                onclick="openEditModal('{{ item.SN|escapejs }}', '{{ item.ItemName|escapejs }}', '{{ item.Spec|default:''|escapejs }}', '{{ item.BoxID.BoxID }}', '{{ item.Location|default:''|escapejs }}', {{ item.Quantity }}, {{ item.Price|default:'null' }})">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <!-- 調撥 -->
+                            <a href="{% url 'material:transaction_transfer' %}?sn={{ item.SN }}" class="btn-act btn-act-transfer">
+                                <i class="bi bi-arrow-left-right"></i>
+                            </a>
+                            <!-- 出庫 -->
+                            <button class="btn-act btn-act-out"
+                                onclick="openOutModal('{{ item.id }}', '{{ item.SN|escapejs }}', '{{ item.ItemName|escapejs }}', {{ item.Quantity }}, '{{ item.BoxID.BoxID }}')">
+                                <i class="bi bi-box-arrow-up"></i> 出庫
+                            </button>
+                            <!-- 刪除 -->
+                            <button class="btn-act btn-act-delete"
+                                onclick="openDeleteModal('{{ item.SN|escapejs }}', '{{ item.ItemName|escapejs }}')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" class="text-center py-5 text-muted">目前沒有任何物品資料</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ════════ 新增 Modal ════════ -->
+<div id="addItemModal" class="modal-custom">
+    <div class="modal-custom-content">
+        <div class="modal-custom-header">
+            <h2>新增物品</h2>
+            <button class="modal-close" onclick="closeAddModal()">&times;</button>
+        </div>
+        <form method="POST" action="{% url 'material:material_add' %}">
+            {% csrf_token %}
+            <div class="modal-custom-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">物品序號 *</label>
+                        <input type="text" name="SN" class="form-control" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">物品名稱 *</label>
+                        <input type="text" name="ItemName" class="form-control" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">規格</label>
+                    <textarea name="Spec" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">容器 *</label>
+                        <select name="BoxID" class="form-select" required>
+                            {% for box in boxes %}
+                            <option value="{{ box.BoxID }}">{{ box.BoxID }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">位置</label>
+                        <input type="text" name="Location" class="form-control" placeholder="例：A排1號">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">數量</label>
+                        <input type="number" name="Quantity" class="form-control" value="0" min="0">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">單價 (NT$)</label>
+                        <input type="number" name="Price" class="form-control" placeholder="選填">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-custom-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeAddModal()">取消</button>
+                <button type="submit" class="btn btn-primary">確認新增</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ════════ 編輯 Modal ════════ -->
+<div id="editItemModal" class="modal-custom">
+    <div class="modal-custom-content">
+        <div class="modal-custom-header header-warning">
+            <h2>編輯物品</h2>
+            <button class="modal-close" onclick="closeEditModal()">&times;</button>
+        </div>
+        <form method="POST" id="editItemForm">
+            {% csrf_token %}
+            <div class="modal-custom-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>物品序號（不可修改）</label>
+                        <input type="text" id="edit_SN_display" class="form-control" disabled>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>物品名稱</label>
+                        <input type="text" id="edit_ItemName" name="ItemName" class="form-control" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label>規格</label>
+                    <input type="text" id="edit_Spec" name="Spec" class="form-control">
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>數量</label>
+                        <input type="number" id="edit_Quantity" name="Quantity" class="form-control" min="0">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>單價 (NT$)</label>
+                        <input type="number" id="edit_Price" name="Price" class="form-control">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-custom-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">取消</button>
+                <button type="submit" class="btn btn-warning text-white">儲存變更</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ════════ 出庫 Modal ════════ -->
+<div id="outItemModal" class="modal-custom">
+    <div class="modal-custom-content" style="max-width: 440px;">
+        <div class="modal-custom-header header-out">
+            <h2><i class="bi bi-box-arrow-up me-2"></i>出庫</h2>
+            <button class="modal-close" onclick="closeOutModal()">&times;</button>
+        </div>
+        <form method="POST" action="{% url 'material:material_out' %}" id="outItemForm">
+            {% csrf_token %}
+            <input type="hidden" name="material_id" id="out_material_id">
+            <input type="hidden" name="from_box"    id="out_from_box">
+            <div class="modal-custom-body">
+                <div class="mb-3">
+                    <div class="text-muted small mb-1">料號 / 品名</div>
+                    <div class="fw-bold" id="out_item_info"></div>
+                </div>
+                <div class="stock-display" id="out_stock_display">庫存：0</div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">出庫數量 <span class="text-danger">*</span></label>
+                    <input type="number" name="quantity" id="out_quantity"
+                           class="form-control form-control-lg text-center fw-bold"
+                           min="1" required>
+                    <div class="form-text">最大可出庫數量：<span id="out_max_qty" class="fw-bold text-danger"></span></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">備註</label>
+                    <input type="text" name="remark" class="form-control" placeholder="選填">
+                </div>
+            </div>
+            <div class="modal-custom-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeOutModal()">取消</button>
+                <button type="submit" class="btn btn-danger">確認出庫</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ════════ 刪除 Modal ════════ -->
+<div id="deleteItemModal" class="modal-custom">
+    <div class="modal-custom-content" style="max-width: 400px;">
+        <div class="modal-custom-header header-danger">
+            <h2>確認刪除</h2>
+            <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <form method="POST" id="deleteItemForm">
+            {% csrf_token %}
+            <div class="modal-custom-body text-center">
+                <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size:2.5rem;"></i>
+                <p class="mt-3 mb-1">確定要刪除物品：</p>
+                <strong id="delete_item_info" class="text-danger"></strong>
+                <p class="text-muted small mt-2">此操作無法復原。</p>
+            </div>
+            <div class="modal-custom-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">取消</button>
+                <button type="submit" class="btn btn-danger">確定刪除</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function applyFilter() {
+        const sn   = document.getElementById('filter_sn').value.toLowerCase();
+        const name = document.getElementById('filter_name').value.toLowerCase();
+        const box  = document.getElementById('filter_box').value;
+        let count  = 0;
+        document.querySelectorAll('.item-row').forEach(row => {
+            const ok = row.dataset.sn.toLowerCase().includes(sn)
+                    && row.dataset.name.toLowerCase().includes(name)
+                    && (!box || row.dataset.box === box);
+            row.style.display = ok ? '' : 'none';
+            if (ok) count++;
+        });
+        document.getElementById('filter_count').innerHTML = `顯示筆數: <strong>${count}</strong>`;
+    }
+
+    function clearFilter() {
+        document.getElementById('filter_sn').value   = '';
+        document.getElementById('filter_name').value = '';
+        document.getElementById('filter_box').value  = '';
+        applyFilter();
+    }
+
+    function toggleFilterPanel() {
+        document.getElementById('filterPanelBody').classList.toggle('hidden');
+        document.getElementById('filterToggleArrow').classList.toggle('collapsed');
+    }
+
+    function openAddModal()  { document.getElementById('addItemModal').classList.add('show'); }
+    function closeAddModal() { document.getElementById('addItemModal').classList.remove('show'); }
+
+    function openEditModal(sn, name, spec, box, loc, qty, price) {
+        document.getElementById('edit_SN_display').value = sn;
+        document.getElementById('edit_ItemName').value   = name;
+        document.getElementById('edit_Spec').value       = spec;
+        document.getElementById('edit_Quantity').value   = qty;
+        document.getElementById('edit_Price').value      = price === 'null' ? '' : price;
+        document.getElementById('editItemForm').action =
+            "{% url 'material:material_edit' 'PLACEHOLDER' %}".replace('PLACEHOLDER', sn);
+        document.getElementById('editItemModal').classList.add('show');
+    }
+    function closeEditModal() { document.getElementById('editItemModal').classList.remove('show'); }
+
+    function openOutModal(materialId, sn, name, qty, fromBox) {
+        document.getElementById('out_material_id').value  = materialId;
+        document.getElementById('out_from_box').value     = fromBox;
+        document.getElementById('out_item_info').innerText = sn + ' — ' + name;
+        document.getElementById('out_quantity').max       = qty;
+        document.getElementById('out_quantity').value     = 1;
+        document.getElementById('out_max_qty').innerText  = qty;
+
+        const stockEl = document.getElementById('out_stock_display');
+        stockEl.innerText = '庫存：' + qty;
+        stockEl.className = 'stock-display' + (qty <= 5 ? ' low' : '');
+
+        document.getElementById('outItemModal').classList.add('show');
+    }
+    function closeOutModal() { document.getElementById('outItemModal').classList.remove('show'); }
+
+    function openDeleteModal(sn, name) {
+        document.getElementById('delete_item_info').innerText = `${sn} - ${name}`;
+        document.getElementById('deleteItemForm').action =
+            "{% url 'material:material_delete' 'PLACEHOLDER' %}".replace('PLACEHOLDER', sn);
+        document.getElementById('deleteItemModal').classList.add('show');
+    }
+    function closeDeleteModal() { document.getElementById('deleteItemModal').classList.remove('show'); }
+
+    window.onclick = function(e) {
+        if (e.target.className === 'modal-custom show') e.target.classList.remove('show');
+    }
+
+    window.onload = applyFilter;
+</script>
+{% endblock %}

@@ -32,304 +32,112 @@
     }
     .toast-item.leaving { animation: toastOut 0.3s ease-in forwards; }
 
-    /* ===== 統計卡片 ===== */
-    .stats-card {
-        background: white;
-        border-radius: 10px;
-        padding: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        text-align: center;
-        border-left: 4px solid #667eea;
-    }
-    .stats-card i {
-        font-size: 2rem;
-        color: #667eea;
-        margin-bottom: 10px;
-    }
-    .stats-card h6 {
-        color: #6c757d;
-        font-size: 0.9rem;
-        margin-bottom: 8px;
-    }
-    .stats-card h3 {
-        color: #1e1b4b;
-        font-weight: 700;
-        margin: 0;
-    }
-
     /* ===== 表單卡片 ===== */
     .form-card {
-        background: white;
-        border-radius: 10px;
-        padding: 30px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        margin-bottom: 20px;
+        background: white; border-radius: 10px; padding: 30px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px;
     }
-    .form-card h5 {
-        color: #1e1b4b;
-        font-weight: 600;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .form-card h5 i {
-        color: #667eea;
-    }
+    .form-card h5 { color: #1e1b4b; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+    .form-card h5 i { color: #667eea; }
 
-    /* ===== 表單樣式 ===== */
-    .form-label {
-        font-size: 13px;
-        font-weight: 600;
-        color: #495057;
-        margin-bottom: 6px;
-    }
-    .form-label .required {
-        color: #dc3545;
-    }
-    .form-control,
-    .form-select {
-        padding: 10px 14px;
-        border: 1px solid #ced2d8;
-        border-radius: 6px;
-        font-size: 14px;
-    }
-    .form-control:focus,
-    .form-select:focus {
-        outline: none;
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102,126,234,0.18);
-    }
-    .form-text {
-        font-size: 12px;
-        color: #6c757d;
-        margin-top: 4px;
-    }
-
-    /* ===== 按鈕 ===== */
-    .btn-transfer {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        padding: 12px 30px;
-        border-radius: 6px;
-        font-size: 15px;
-        font-weight: 600;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        transition: all 0.3s;
-    }
-    .btn-transfer:hover {
-        opacity: 0.9;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(102,126,234,0.3);
-    }
-    .btn-transfer:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-        transform: none;
-    }
-
-    .btn-secondary-custom {
-        background: #6c757d;
-        color: white;
-        border: none;
-        padding: 12px 24px;
-        border-radius: 6px;
-        font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        text-decoration: none;
-    }
-    .btn-secondary-custom:hover {
-        background: #5c636a;
-        color: white;
-    }
+    .form-label { font-size: 13px; font-weight: 600; color: #495057; margin-bottom: 6px; }
+    .form-label .required { color: #dc3545; }
+    
+    .form-control:read-only { background-color: #f8f9fa !important; cursor: not-allowed; }
 
     /* ===== 最近記錄表格 ===== */
-    .recent-transfers-card {
-        background: white;
-        border-radius: 10px;
-        padding: 30px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-    .recent-transfers-card h5 {
-        color: #1e1b4b;
-        font-weight: 600;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .recent-transfers-card h5 i {
-        color: #667eea;
-    }
+    .recent-transfers-card { background: white; border-radius: 10px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .table-recent { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .table-recent thead { background: #f8f9fa; }
+    .table-recent thead th { padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #dee2e6; }
+    .table-recent td { padding: 12px; border-bottom: 1px solid #eee; }
 
-    .table-recent {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-    }
-    .table-recent thead {
-        background: #f8f9fa;
-    }
-    .table-recent thead th {
-        padding: 12px;
-        text-align: left;
-        font-weight: 600;
-        color: #495057;
-        border-bottom: 2px solid #dee2e6;
-    }
-    .table-recent tbody tr {
-        border-bottom: 1px solid #eee;
-        transition: background 0.15s;
-    }
-    .table-recent tbody tr:hover {
-        background: #f8f9fa;
-    }
-    .table-recent td {
-        padding: 12px;
-        color: #495057;
-    }
-
-    .badge-from {
-        background: #fff3cd;
-        color: #856404;
-        padding: 4px 10px;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: 600;
-    }
-    .badge-to {
-        background: #d1e7dd;
-        color: #0f5132;
-        padding: 4px 10px;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: 600;
-    }
-
-    /* ===== 載入中狀態 ===== */
-    .loading-text {
-        text-align: center;
-        color: #6c757d;
-        padding: 20px;
-        font-size: 14px;
-    }
-    .empty-text {
-        text-align: center;
-        color: #9ca3af;
-        padding: 30px;
-    }
-    .empty-text i {
-        font-size: 2.5rem;
-        display: block;
-        margin-bottom: 10px;
-        color: #d1d5db;
-    }
+    .badge-from { background: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-weight: 600; }
+    .badge-to { background: #d1e7dd; color: #0f5132; padding: 4px 8px; border-radius: 4px; font-weight: 600; }
+    
+    .info-text { font-size: 12px; margin-top: 5px; min-height: 18px; }
+    .text-stock { color: #0d6efd; font-weight: 600; }
 </style>
 {% endblock %}
 
 {% block content %}
+{{ items_by_box|json_script:"transfer-items-by-box" }}
+{{ recent_transfers_payload|json_script:"transfer-recent-transfers" }}
 
-<!-- Toast 通知容器 -->
 <div class="toast-container" id="toastContainer"></div>
 
 <div class="container-fluid">
-    <!-- 調撥表單 -->
     <div class="form-card">
         <h5><i class="bi bi-box-arrow-right"></i> 物品調撥作業</h5>
         <form method="POST" id="transferForm">
             {% csrf_token %}
 
             <div class="row mb-3">
-                <!-- 來源容器 -->
                 <div class="col-md-6">
-                    <label for="from_box" class="form-label">來源容器 <span class="required">*</span></label>
+                    <label class="form-label">來源容器 <span class="required">*</span></label>
                     <select class="form-select" id="from_box" name="from_box" required>
                         <option value="">-- 請選擇來源容器 --</option>
                         {% for box in boxes %}
                         <option value="{{ box.BoxID }}" {% if box.BoxID == pre_source_box %}selected{% endif %}>
-                            {{ box.BoxID }} - {{ box.Description|default:"無描述" }}
+                            {{ box.BoxID }} {% if box.Description %}- {{ box.Description }}{% endif %}
                         </option>
                         {% endfor %}
                     </select>
                 </div>
 
-                <!-- 目標容器 -->
                 <div class="col-md-6">
-                    <label for="to_box" class="form-label">目標容器 <span class="required">*</span></label>
+                    <label class="form-label">目標容器 <span class="required">*</span></label>
                     <select class="form-select" id="to_box" name="to_box" required>
                         <option value="">-- 請選擇目標容器 --</option>
                         {% for box in boxes %}
-                        <option value="{{ box.BoxID }}">
-                            {{ box.BoxID }} - {{ box.Description|default:"無描述" }}
-                        </option>
+                        <option value="{{ box.BoxID }}">{{ box.BoxID }}</option>
                         {% endfor %}
                     </select>
                 </div>
             </div>
 
             <div class="row mb-3">
-                <!-- 選擇物品 -->
                 <div class="col-md-6">
-                    <label for="item" class="form-label">選擇物品 <span class="required">*</span></label>
+                    <label class="form-label">選擇物品 <span class="required">*</span></label>
                     <select class="form-select" id="item" name="item" required disabled>
                         <option value="">-- 請先選擇來源容器 --</option>
                     </select>
-                    <small class="form-text" id="item_info"></small>
+                    <div class="info-text text-muted" id="item_info"></div>
                 </div>
 
-                <!-- 調撥數量 -->
                 <div class="col-md-6">
-                    <label for="quantity" class="form-label">調撥數量 <span class="required">*</span></label>
-                    <input type="number" class="form-control" id="quantity" name="quantity"
-                           min="1" required disabled>
-                    <small class="form-text" id="stock_info"></small>
+                    <label class="form-label">調撥數量 <span class="required">*</span></label>
+                    <input type="number" class="form-control" id="quantity" name="quantity" min="1" required disabled>
+                    <div class="info-text text-stock" id="stock_info"></div>
                 </div>
             </div>
 
-            <div class="row mb-3">
-                <!-- 操作人員 (唯讀) -->
+            <div class="row mb-4">
                 <div class="col-md-6">
-                    <label for="operator" class="form-label">操作人員</label>
-                    <input type="text"
-                           class="form-control"
-                           id="operator"
-                           name="operator"
-                           value="{{ current_user_name }} ({{ current_user_id }})"
-                           readonly
-                           style="background-color:#e9ecef; cursor: not-allowed;">
+                    <label class="form-label">操作人員</label>
+                    <input type="text" class="form-control" value="{{ current_user_name }} ({{ current_user_id }})" readonly>
                     <input type="hidden" name="operator_id" value="{{ current_user_id }}">
                 </div>
 
-                <!-- 備註 -->
                 <div class="col-md-6">
-                    <label for="remark" class="form-label">備註</label>
-                    <input type="text" class="form-control" id="remark" name="remark"
-                           placeholder="選填，例如：專案需求調撥">
+                    <label class="form-label">備註</label>
+                    <input type="text" class="form-control" name="remark" placeholder="選填">
                 </div>
             </div>
 
             <div class="d-flex justify-content-end gap-2">
-                <a href="{% url 'material:transaction_history' %}" class="btn-secondary-custom">
+                <a href="{% url 'material:transaction_history' %}" class="btn btn-outline-secondary">
                     <i class="bi bi-clock-history"></i> 查看歷史
                 </a>
-                <button type="submit" class="btn-transfer">
+                <button type="submit" class="btn btn-primary px-4" id="submitBtn">
                     <i class="bi bi-box-arrow-right"></i> 執行調撥
                 </button>
             </div>
         </form>
     </div>
 
-    <!-- 最近調撥記錄 -->
     <div class="recent-transfers-card">
-        <h5><i class="bi bi-clock-history"></i> 最近調撥記錄</h5>
+        <h5 class="mb-4"><i class="bi bi-clock-history"></i> 最近調撥記錄</h5>
         <div class="table-responsive">
             <table class="table-recent">
                 <thead>
@@ -343,230 +151,144 @@
                     </tr>
                 </thead>
                 <tbody id="recent_transfers">
-                    <tr>
-                        <td colspan="6" class="loading-text">載入中...</td>
-                    </tr>
+                    <tr><td colspan="6" class="text-center py-4 text-muted">載入中...</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// ========================================================
-// Toast 通知
-// ========================================================
-function showToast(message, isError) {
+function showToast(message, isError = false) {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
-    toast.className = 'toast-item' + (isError ? ' error' : '');
-    toast.innerHTML = `<i class="bi bi-${isError ? 'exclamation-triangle-fill' : 'check-circle-fill'}"></i>${message}`;
+    toast.className = `toast-item ${isError ? 'error' : ''}`;
+    toast.innerHTML = `<i class="bi bi-${isError ? 'exclamation-circle' : 'check-circle'}"></i> <span>${message}</span>`;
     container.appendChild(toast);
     setTimeout(() => {
         toast.classList.add('leaving');
-        setTimeout(() => toast.remove(), 320);
-    }, 2200);
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
-// ========================================================
-// DOMContentLoaded
-// ========================================================
 document.addEventListener('DOMContentLoaded', function() {
-    const fromBoxSelect = document.getElementById('from_box');
-    const toBoxSelect = document.getElementById('to_box');
+    const fromBox = document.getElementById('from_box');
+    const toBox = document.getElementById('to_box');
     const itemSelect = document.getElementById('item');
-    const quantityInput = document.getElementById('quantity');
+    const qtyInput = document.getElementById('quantity');
     const itemInfo = document.getElementById('item_info');
     const stockInfo = document.getElementById('stock_info');
+    const transferForm = document.getElementById('transferForm');
 
-    // Django view 傳來的預填充值
-    const preSN = "{{ pre_sn }}";
-    const preSourceBox = "{{ pre_source_box }}";
+    const preSN = "{{ pre_sn|default:'' }}";
+    const ITEMS_BY_BOX = JSON.parse(document.getElementById('transfer-items-by-box').textContent);
 
-    // 當選擇來源容器時，載入該容器的物品
-    fromBoxSelect.addEventListener('change', function() {
+    // 1. 來源容器變更（資料由後端嵌入，不再呼叫 /api/）
+    fromBox.addEventListener('change', function() {
         const boxId = this.value;
-
         if (!boxId) {
-            itemSelect.disabled = true;
-            itemSelect.innerHTML = '<option value="">-- 請先選擇來源容器 --</option>';
-            quantityInput.disabled = true;
-            itemInfo.textContent = '';
-            stockInfo.textContent = '';
+            resetItemField("-- 請先選擇來源容器 --");
             return;
         }
 
-        if (boxId === toBoxSelect.value) {
-            alert('來源容器和目標容器不能相同！');
-            this.value = '';
+        if (boxId === toBox.value) {
+            showToast("來源與目標容器不可相同", true);
+            this.value = "";
             return;
         }
 
-        itemSelect.innerHTML = '<option value="">載入中...</option>';
-        itemSelect.disabled = true;
-
-        const apiUrl = `/material/api/box/${boxId}/items/`;
-
-        fetch(apiUrl)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.error) {
-                    showToast('載入物品失敗：' + data.error, true);
-                    itemSelect.innerHTML = '<option value="">-- 載入失敗 --</option>';
-                    return;
-                }
-
-                itemSelect.innerHTML = '<option value="">-- 請選擇物品 --</option>';
-
-                if (data.items.length === 0) {
-                    itemSelect.innerHTML = '<option value="">-- 此容器沒有物品 --</option>';
-                    itemSelect.disabled = true;
-                } else {
-                    data.items.forEach(item => {
-                        const option = document.createElement('option');
-                        option.value = item.item_id;
-                        option.textContent = `${item.item_name} (庫存: ${item.quantity})`;
-                        option.dataset.quantity = item.quantity;
-                        option.dataset.spec = item.spec || '';
-                        // 如果這個物品序號和從來頁帶來的 preSN 一樣，標記為 selected
-                        if (preSN && item.item_id === preSN) {
-                            option.selected = true;
-                        }
-                        itemSelect.appendChild(option);
-                    });
-                    itemSelect.disabled = false;
-
-                    // 如果有預填充的物品，觸發 item 的 change 來填入數量等資訊
-                    if (preSN) {
-                        itemSelect.dispatchEvent(new Event('change'));
-                    }
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showToast('載入物品失敗：' + error.message, true);
-                itemSelect.innerHTML = '<option value="">-- 載入失敗 --</option>';
-                itemSelect.disabled = true;
+        const items = ITEMS_BY_BOX[boxId] || [];
+        if (items.length > 0) {
+            itemSelect.innerHTML = '<option value="">-- 請選擇物品 --</option>';
+            items.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.item_id;
+                opt.textContent = `${item.item_name} (庫存: ${item.quantity})`;
+                opt.dataset.qty = item.quantity;
+                opt.dataset.spec = item.spec || '無規格';
+                if (preSN && item.item_id === preSN) opt.selected = true;
+                itemSelect.appendChild(opt);
             });
-    });
-
-    // 當選擇目標容器時，檢查是否與來源相同
-    toBoxSelect.addEventListener('change', function() {
-        if (this.value && this.value === fromBoxSelect.value) {
-            showToast('目標容器不能與來源容器相同！', true);
-            this.value = '';
+            itemSelect.disabled = false;
+            if (itemSelect.value) itemSelect.dispatchEvent(new Event('change'));
+        } else {
+            resetItemField("-- 此容器目前無物品 --");
         }
     });
 
-    // 當選擇物品時，顯示詳細資訊並啟用數量輸入
+    // 2. 物品選擇變更
     itemSelect.addEventListener('change', function() {
-        const selectedOption = this.options[this.selectedIndex];
-
+        const opt = this.options[this.selectedIndex];
         if (!this.value) {
-            quantityInput.disabled = true;
-            quantityInput.value = '';
-            itemInfo.textContent = '';
-            stockInfo.textContent = '';
+            qtyInput.disabled = true;
+            itemInfo.textContent = "";
+            stockInfo.textContent = "";
             return;
         }
-
-        const maxQty = parseInt(selectedOption.dataset.quantity);
-        const spec = selectedOption.dataset.spec;
-
-        itemInfo.textContent = spec ? `規格: ${spec}` : '';
-        stockInfo.textContent = `可調撥數量: ${maxQty}`;
-
-        quantityInput.max = maxQty;
-        quantityInput.value = Math.min(1, maxQty);
-        quantityInput.disabled = false;
+        itemInfo.textContent = `規格: ${opt.dataset.spec}`;
+        stockInfo.textContent = `目前庫存: ${opt.dataset.qty}`;
+        qtyInput.max = opt.dataset.qty;
+        qtyInput.disabled = false;
+        if (!qtyInput.value) qtyInput.value = 1;
     });
 
-    // 表單驗證與防重複提交
-    document.getElementById('transferForm').addEventListener('submit', function(e) {
-        const quantity = parseInt(quantityInput.value);
-        const maxQty = parseInt(quantityInput.max);
-        const submitBtn = this.querySelector('button[type="submit"]');
-
-        if (quantity > maxQty) {
-            e.preventDefault();
-            showToast(`調撥數量不能超過庫存數量 ${maxQty}！`, true);
-            return false;
-        }
-
-        if (fromBoxSelect.value === toBoxSelect.value) {
-            e.preventDefault();
-            showToast('來源容器和目標容器不能相同！', true);
-            return false;
-        }
-
-        if (submitBtn.disabled) {
-            e.preventDefault();
-            return false;
-        }
-
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 調撥中...';
-    });
-
-    // 載入最近的調撥記錄
-    loadRecentTransfers();
-
-    // ===== 頁面載入時，如果來源容器已經預填充了，觸發 change 來帶動後面的欄位 =====
-    if (preSourceBox) {
-        fromBoxSelect.value = preSourceBox;
-        fromBoxSelect.dispatchEvent(new Event('change'));
+    function resetItemField(msg) {
+        itemSelect.innerHTML = `<option value="">${msg}</option>`;
+        itemSelect.disabled = true;
+        qtyInput.disabled = true;
+        qtyInput.value = "";
+        itemInfo.textContent = "";
+        stockInfo.textContent = "";
     }
+
+    // 3. 表單提交驗證
+    transferForm.addEventListener('submit', function(e) {
+        const btn = document.getElementById('submitBtn');
+        const q = parseInt(qtyInput.value);
+        const max = parseInt(qtyInput.max);
+
+        if (q > max) {
+            e.preventDefault();
+            showToast(`數量不可超過庫存 (${max})`, true);
+            return;
+        }
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 處理中...';
+    });
+
+    // 4. 載入最近記錄
+    loadRecent();
+
+    // 初始觸發
+    if (fromBox.value) fromBox.dispatchEvent(new Event('change'));
 });
 
-// ========================================================
-// 載入最近調撥記錄
-// ========================================================
-function loadRecentTransfers() {
-    fetch('/material/api/recent-transfers/')
-        .then(response => response.json())
-        .then(data => {
-            const tbody = document.getElementById('recent_transfers');
+function loadRecent() {
+    try {
+        const transfers = JSON.parse(document.getElementById('transfer-recent-transfers').textContent);
+        const tbody = document.getElementById('recent_transfers');
 
-            if (data.transfers && data.transfers.length > 0) {
-                tbody.innerHTML = data.transfers.map(t => `
-                    <tr>
-                        <td>${t.timestamp}</td>
-                        <td>${t.item_name}</td>
-                        <td><strong>${t.quantity}</strong></td>
-                        <td><span class="badge-from">${t.from_box}</span></td>
-                        <td><span class="badge-to">${t.to_box}</span></td>
-                        <td>${t.operator}</td>
-                    </tr>
-                `).join('');
-            } else {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="6">
-                            <div class="empty-text">
-                                <i class="bi bi-inbox"></i>
-                                <p>暫無調撥記錄</p>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('recent_transfers').innerHTML = `
-                <tr>
-                    <td colspan="6" class="text-center text-danger">載入失敗</td>
-                </tr>
-            `;
-        });
+        if (!transfers || transfers.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">暫無調撥紀錄</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = transfers.map(t => `
+            <tr>
+                <td class="text-muted">${t.timestamp}</td>
+                <td><strong>${t.item_name}</strong></td>
+                <td>${t.quantity}</td>
+                <td><span class="badge-from">${t.from_box}</span></td>
+                <td><span class="badge-to">${t.to_box}</span></td>
+                <td class="text-muted">${t.operator}</td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        document.getElementById('recent_transfers').innerHTML = '<tr><td colspan="6" class="text-center text-danger">紀錄載入失敗</td></tr>';
+    }
 }
 </script>
 {% endblock %}

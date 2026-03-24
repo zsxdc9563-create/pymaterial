@@ -1,239 +1,105 @@
 ﻿# material_app/services/transaction_service.py
+import logging
+from collections import defaultdict
 
-from material_app.models import MaterialItems, MaterialOverview, MaterialTransaction
+from django.shortcuts import get_object_or_404
+
+from ..models import MaterialItems, MaterialOverview, TransactionLog
+
+logger = logging.getLogger(__name__)
 
 
-class TransactionService:
-    """交易服務類別 - 用於處理物料調撥相關操作"""
+# ── 查詢 ──────────────────────────────────────────────
 
-    # --------------------------------------------------------
-    # 調撥
-    # --------------------------------------------------------
-    @staticmethod
-    def transfer(sn, quantity, from_box, to_box, operator="Admin", remark=""):
-        """
-        執行物料調撥（從 from_box 移動到 to_box）
+def get_all_transactions(action_type=None, from_box=None, operator=None):
+    qs = TransactionLog.objects.all()
+    if action_type:
+        qs = qs.filter(ActionType=action_type)
+    if from_box:
+        qs = qs.filter(FromBoxID=from_box)
+    if operator:
+        qs = qs.filter(Operator=operator)
+    return qs
 
-        Args:
-            sn: 物品序號 (MaterialItems.SN)
-            quantity: 調撥數量
-            from_box: 來源容器 BoxID
-            to_box: 目標容器 BoxID
-            operator: 操作人員
-            remark: 備註
+def get_transaction_stats():
+    transactions = TransactionLog.objects.all()
+    return {
+        'total':    transactions.count(),
+        'checkin':  transactions.filter(ActionType='入庫').count(),
+        'checkout': transactions.filter(ActionType='出庫').count(),
+        'transfer': transactions.filter(ActionType='調撥').count(),
+    }
 
-        Returns:
-            建立的 MaterialTransaction 物件
+def get_items_by_box():
+    """依容器編號分組的物品（供調撥頁前端用）"""
+    grouped = defaultdict(list)
+    for item in MaterialItems.objects.select_related('BoxID').order_by('SN'):
+        grouped[item.BoxID_id].append({
+            'item_id':   item.SN,
+            'item_name': item.ItemName,
+            'quantity':  item.Quantity,
+            'spec':      item.Spec or '',
+        })
+    return dict(grouped)
 
-        Raises:
-            ValueError: 參數錯誤或庫存不足
-            MaterialItems.DoesNotExist: 物品不存在
-        """
-        quantity = int(quantity)
-        if quantity <= 0:
-            raise ValueError("調撥數量必須大於 0")
-
-        # 確認來源容器裡的物品存在
-        try:
-            source_item = MaterialItems.objects.get(SN=sn, BoxID__BoxID=from_box)
-        except MaterialItems.DoesNotExist:
-            raise ValueError(f"來源容器 {from_box} 裡找不到物品 {sn}")
-
-        # 庫存不足檢查
-        if source_item.Quantity < quantity:
-            raise ValueError(
-                f"來源容器 {from_box} 的物品 {sn} 庫存不足 "
-                f"（現有 {source_item.Quantity}，調撥 {quantity}）"
-            )
-
-        # 確認目標容器存在
-        if not MaterialOverview.objects.filter(BoxID=to_box).exists():
-            raise ValueError(f"目標容器 {to_box} 不存在")
-
-        # 確認目標容器沒有被鎖定
-        target_box_obj = MaterialOverview.objects.get(BoxID=to_box)
-        if target_box_obj.Locked:
-            raise ValueError(f"目標容器 {to_box} 已被鎖定，無法調撥")
-
-        # 確認來源容器沒有被鎖定
-        source_box_obj = MaterialOverview.objects.get(BoxID=from_box)
-        if source_box_obj.Locked:
-            raise ValueError(f"來源容器 {from_box} 已被鎖定，無法調撥")
-
-        # ---- 開始執行調撥 ----
-        stock_before = source_item.Quantity
-
-        # 來源：減少庫存
-        source_item.Quantity -= quantity
-        source_item.save()
-
-        # 目標：如果同一 SN 已存在於目標容器就累加，否則新建
-        target_item, created = MaterialItems.objects.get_or_create(
-            SN=sn,
-            BoxID=target_box_obj,
-            defaults={
-                'ItemName': source_item.ItemName,
-                'Spec': source_item.Spec,
-                'Location': source_item.Location,
-                'Quantity': quantity,
-            }
-        )
-        if not created:
-            target_item.Quantity += quantity
-            target_item.save()
-
-        # ---- 寫入交易記錄 ----
-        log = MaterialTransaction.objects.create(
-            SN=source_item,
-            ActionType='調撥',
-            FromBoxID=from_box,
-            ToBoxID=to_box,
-            TransQty=quantity,
-            StockBefore=stock_before,
-            StockAfter=source_item.Quantity,
-            Operator=operator,
-            Remark=remark,
-        )
-        return log
-
-    # --------------------------------------------------------
-    # 入庫
-    # --------------------------------------------------------
-    @staticmethod
-    def checkin(sn, quantity, to_box, operator="Admin", remark=""):
-        """
-        執行入庫（增加指定容器裡的物品庫存）
-
-        Args:
-            sn: 物品序號
-            quantity: 入庫數量
-            to_box: 目標容器 BoxID
-            operator: 操作人員
-            remark: 備註
-
-        Returns:
-            建立的 MaterialTransaction 物件
-        """
-        quantity = int(quantity)
-        if quantity <= 0:
-            raise ValueError("入庫數量必須大於 0")
-
-        # 確認目標容器存在且沒被鎖定
-        try:
-            box_obj = MaterialOverview.objects.get(BoxID=to_box)
-        except MaterialOverview.DoesNotExist:
-            raise ValueError(f"容器 {to_box} 不存在")
-        if box_obj.Locked:
-            raise ValueError(f"容器 {to_box} 已被鎖定，無法入庫")
-
-        # 找或建立物品記錄
-        item, created = MaterialItems.objects.get_or_create(
-            SN=sn,
-            BoxID=box_obj,
-            defaults={
-                'ItemName': sn,   # 新物品暫以 SN 當名稱，後續可補充
-                'Quantity': 0,
-            }
-        )
-
-        stock_before = item.Quantity
-        item.Quantity += quantity
-        item.save()
-
-        # 寫入交易記錄
-        log = MaterialTransaction.objects.create(
-            SN=item,
-            ActionType='入庫',
-            FromBoxID=None,
-            ToBoxID=to_box,
-            TransQty=quantity,
-            StockBefore=stock_before,
-            StockAfter=item.Quantity,
-            Operator=operator,
-            Remark=remark,
-        )
-        return log
-
-    # --------------------------------------------------------
-    # 出庫
-    # --------------------------------------------------------
-    @staticmethod
-    def checkout(sn, quantity, from_box, operator="Admin", remark=""):
-        """
-        執行出庫（減少指定容器裡的物品庫存）
-
-        Args:
-            sn: 物品序號
-            quantity: 出庫數量
-            from_box: 來源容器 BoxID
-            operator: 操作人員
-            remark: 備註
-
-        Returns:
-            建立的 MaterialTransaction 物件
-        """
-        quantity = int(quantity)
-        if quantity <= 0:
-            raise ValueError("出庫數量必須大於 0")
-
-        try:
-            item = MaterialItems.objects.get(SN=sn, BoxID__BoxID=from_box)
-        except MaterialItems.DoesNotExist:
-            raise ValueError(f"容器 {from_box} 裡找不到物品 {sn}")
-
-        if item.Quantity < quantity:
-            raise ValueError(
-                f"容器 {from_box} 的物品 {sn} 庫存不足 "
-                f"（現有 {item.Quantity}，出庫 {quantity}）"
-            )
-
-        # 確認來源容器沒鎖定
-        source_box = MaterialOverview.objects.get(BoxID=from_box)
-        if source_box.Locked:
-            raise ValueError(f"容器 {from_box} 已被鎖定，無法出庫")
-
-        stock_before = item.Quantity
-        item.Quantity -= quantity
-        item.save()
-
-        log = MaterialTransaction.objects.create(
-            SN=item,
-            ActionType='出庫',
-            FromBoxID=from_box,
-            ToBoxID=None,
-            TransQty=quantity,
-            StockBefore=stock_before,
-            StockAfter=item.Quantity,
-            Operator=operator,
-            Remark=remark,
-        )
-        return log
-
-    # --------------------------------------------------------
-    # 查詢
-    # --------------------------------------------------------
-    @staticmethod
-    def get_all_transactions():
-        """
-        取得所有交易記錄（時間降序）
-
-        Returns:
-            QuerySet[MaterialTransaction]
-        """
-        return MaterialTransaction.objects.select_related('SN').order_by('-Timestamp')
-
-    @staticmethod
-    def get_transaction_stats():
-        """
-        取得交易統計資訊，供歷史記錄頁面的統計卡片使用
-
-        Returns:
-            dict: { 'total': int, 'checkin': int, 'checkout': int, 'transfer': int }
-        """
-        qs = MaterialTransaction.objects
-        return {
-            'total':    qs.count(),
-            'checkin':  qs.filter(ActionType='入庫').count(),
-            'checkout': qs.filter(ActionType='出庫').count(),
-            'transfer': qs.filter(ActionType='調撥').count(),
+def get_recent_transfers(limit=10):
+    """最近 N 筆調撥記錄"""
+    transfers = (
+        TransactionLog.objects.filter(ActionType='調撥')
+        .select_related('SN')
+        .order_by('-Timestamp')[:limit]
+    )
+    return [
+        {
+            'timestamp': t.Timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            'item_name': t.SN.ItemName if t.SN else '未知',
+            'quantity':  t.TransQty,
+            'from_box':  t.FromBoxID or '—',
+            'to_box':    t.ToBoxID or '—',
+            'operator':  t.Operator or '未知',
         }
+        for t in transfers
+    ]
+
+def get_unlocked_boxes():
+    return MaterialOverview.objects.filter(Locked=False).order_by('BoxID')
+
+
+# ── 調撥 ──────────────────────────────────────────────
+
+def transfer_item(from_box_id, to_box_id, item_sn, quantity, operator_id, remark=''):
+    from_box = get_object_or_404(MaterialOverview, BoxID=from_box_id)
+    to_box   = get_object_or_404(MaterialOverview, BoxID=to_box_id)
+
+    if from_box.Locked:
+        raise ValueError(f'來源容器 {from_box_id} 已鎖定，無法調撥')
+    if to_box.Locked:
+        raise ValueError(f'目標容器 {to_box_id} 已鎖定，無法調撥')
+
+    from_item    = MaterialItems.objects.get(SN=item_sn, BoxID=from_box)
+    stock_before = from_item.Quantity
+    from_item.Quantity -= quantity
+
+    try:
+        to_item = MaterialItems.objects.get(SN=item_sn, BoxID=to_box)
+        to_item.Quantity += quantity
+        to_item.save()
+    except MaterialItems.DoesNotExist:
+        to_item = MaterialItems.objects.create(
+            SN=item_sn, BoxID=to_box, ItemName=from_item.ItemName,
+            Spec=from_item.Spec, Location=from_item.Location, Quantity=quantity
+        )
+
+    if from_item.Quantity == 0:
+        from_item.delete()
+    else:
+        from_item.save()
+
+    TransactionLog.objects.create(
+        SN=to_item, ActionType='調撥',
+        FromBoxID=from_box_id, ToBoxID=to_box_id,
+        TransQty=quantity, StockBefore=stock_before,
+        StockAfter=from_item.Quantity,
+        Operator=operator_id,
+        Remark=remark or f'從 {from_box_id} 調撥',
+    )

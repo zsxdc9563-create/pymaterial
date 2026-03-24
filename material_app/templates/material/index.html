@@ -6,551 +6,188 @@
 {% block content %}
 
 <style>
-    /* ==================== 全域容器 ==================== */
-    .main-container {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 2rem 1rem;
-    }
+    .main-container { max-width: 1400px; margin: 0 auto; padding: 2rem 1rem; }
 
-    /* ==================== 歡迎區塊樣式 ==================== */
-    .welcome-section {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 2rem;
-        border-radius: 15px;
-        margin-bottom: 2.5rem;
-        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
-    }
+    .welcome-section { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 15px; margin-bottom: 2.5rem; box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3); }
+    .welcome-section h2 { font-size: 2rem; font-weight: 600; margin-bottom: 0.8rem; }
+    .user-info { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; font-size: 0.95rem; }
+    .user-info span { display: flex; align-items: center; gap: 0.3rem; }
+    .user-info .badge { font-size: 0.9rem; padding: 0.5rem 1rem; font-weight: 500; }
 
-    .welcome-section h2 {
-        font-size: 2rem;
-        font-weight: 600;
-        margin-bottom: 0.8rem;
-    }
+    .section-title { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.8rem; padding-bottom: 0.8rem; border-bottom: 3px solid #e2e8f0; }
+    .section-title i { font-size: 1.8rem; color: #667eea; }
+    .section-title h3 { margin: 0; font-size: 1.5rem; font-weight: 600; color: #2d3748; }
 
-    .user-info {
-        display: flex;
-        align-items: center;
-        gap: 1.5rem;
-        flex-wrap: wrap;
-        font-size: 0.95rem;
-    }
+    .function-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem; }
 
-    .user-info span {
-        display: flex;
-        align-items: center;
-        gap: 0.3rem;
-    }
+    .function-card { background: white; border-radius: 12px; padding: 1.8rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.3s ease; position: relative; border: 2px solid transparent; overflow: hidden; }
+    .function-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #667eea, #764ba2); opacity: 0; transition: opacity 0.3s; }
+    .function-card:hover:not(.disabled)::before { opacity: 1; }
+    .function-card:hover:not(.disabled) { transform: translateY(-8px); box-shadow: 0 12px 28px rgba(102, 126, 234, 0.2); border-color: #667eea; }
+    .function-card.disabled { opacity: 0.5; cursor: not-allowed; background: #f7fafc; }
 
-    .user-info .badge {
-        font-size: 0.9rem;
-        padding: 0.5rem 1rem;
-        font-weight: 500;
-    }
+    .stat-number { position: absolute; top: 1.2rem; right: 1.2rem; width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 700; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); z-index: 1; }
+    .function-card.disabled .stat-number { background: #cbd5e0; box-shadow: none; }
+    .function-card[data-function="box_list"] .stat-number { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .function-card[data-function="material_list"] .stat-number { background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); }
+    .function-card[data-function="transaction_history"] .stat-number { background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%); }
+    .function-card[data-function="box_add"] .stat-number { background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); }
+    .function-card[data-function="transaction_transfer"] .stat-number { background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%); }
 
-    /* ==================== 區塊標題 ==================== */
-    .section-title {
-        display: flex;
-        align-items: center;
-        gap: 0.8rem;
-        margin-bottom: 1.8rem;
-        padding-bottom: 0.8rem;
-        border-bottom: 3px solid #e2e8f0;
-    }
+    .card-icon { font-size: 2.8rem; color: #667eea; margin-bottom: 1.2rem; transition: transform 0.3s; }
+    .function-card:hover:not(.disabled) .card-icon { transform: scale(1.1); }
+    .function-card.disabled .card-icon { color: #cbd5e0; }
+    .function-card h4 { font-size: 1.3rem; font-weight: 600; color: #2d3748; margin-bottom: 0.6rem; }
+    .function-card p { color: #718096; font-size: 0.9rem; margin-bottom: 1.2rem; line-height: 1.6; min-height: 2.5rem; }
 
-    .section-title i {
-        font-size: 1.8rem;
-        color: #667eea;
-    }
+    .card-action { display: flex; justify-content: flex-end; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; }
+    .btn-action { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 500; text-decoration: none; transition: all 0.2s; font-size: 0.9rem; }
+    .function-card:not(.disabled) .btn-action { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .function-card:not(.disabled) .btn-action:hover { transform: translateX(5px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
+    .function-card.disabled .btn-action { background: #e2e8f0; color: #a0aec0; cursor: not-allowed; pointer-events: none; }
 
-    .section-title h3 {
-        margin: 0;
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #2d3748;
-    }
+    .quick-actions { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem; }
+    .quick-action-btn { display: inline-flex; align-items: center; gap: 0.8rem; padding: 0.8rem 1.5rem; border-radius: 10px; font-weight: 500; text-decoration: none; transition: all 0.3s; border: 2px solid; font-size: 0.95rem; }
+    .quick-action-btn i { font-size: 1.2rem; }
+    .quick-action-btn:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
+    .quick-action-btn.primary { background: #667eea; color: white; border-color: #667eea; }
+    .quick-action-btn.primary:hover { background: #5568d3; border-color: #5568d3; }
+    .quick-action-btn.secondary { background: white; color: #667eea; border-color: #667eea; }
+    .quick-action-btn.secondary:hover { background: #667eea; color: white; }
+    .quick-action-btn.success { background: #48bb78; color: white; border-color: #48bb78; }
+    .quick-action-btn.success:hover { background: #38a169; border-color: #38a169; }
+    .quick-action-btn.warning { background: #ed8936; color: white; border-color: #ed8936; }
+    .quick-action-btn.warning:hover { background: #dd6b20; border-color: #dd6b20; }
 
-    /* ==================== 功能卡片網格 ==================== */
-    .function-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 2.5rem;
-    }
-
-    .function-card {
-        background: white;
-        border-radius: 12px;
-        padding: 1.8rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        transition: all 0.3s ease;
-        position: relative;
-        border: 2px solid transparent;
-        overflow: hidden;
-    }
-
-    .function-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, #667eea, #764ba2);
-        opacity: 0;
-        transition: opacity 0.3s;
-    }
-
-    .function-card:hover:not(.disabled)::before {
-        opacity: 1;
-    }
-
-    .function-card:hover:not(.disabled) {
-        transform: translateY(-8px);
-        box-shadow: 0 12px 28px rgba(102, 126, 234, 0.2);
-        border-color: #667eea;
-    }
-
-    .function-card.disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        background: #f7fafc;
-    }
-
-    /* ==================== 統計數字徽章 ==================== */
-    .stat-number {
-        position: absolute;
-        top: 1.2rem;
-        right: 1.2rem;
-        width: 52px;
-        height: 52px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.3rem;
-        font-weight: 700;
-        color: white;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        z-index: 1;
-    }
-
-    .function-card.disabled .stat-number {
-        background: #cbd5e0;
-        box-shadow: none;
-    }
-
-    /* ✅ 不同功能卡片的顏色 */
-    .function-card[data-function="box_list"] .stat-number {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-
-    .function-card[data-function="item_list"] .stat-number {
-        background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
-    }
-
-    .function-card[data-function="transaction_history"] .stat-number {
-        background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
-    }
-
-    .function-card[data-function="box_add"] .stat-number {
-        background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
-    }
-
-    .function-card[data-function="transaction_transfer"] .stat-number {
-        background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
-    }
-
-    /* ==================== 卡片內容 ==================== */
-    .card-icon {
-        font-size: 2.8rem;
-        color: #667eea;
-        margin-bottom: 1.2rem;
-        transition: transform 0.3s;
-    }
-
-    .function-card:hover:not(.disabled) .card-icon {
-        transform: scale(1.1);
-    }
-
-    .function-card.disabled .card-icon {
-        color: #cbd5e0;
-    }
-
-    .function-card h4 {
-        font-size: 1.3rem;
-        font-weight: 600;
-        color: #2d3748;
-        margin-bottom: 0.6rem;
-    }
-
-    .function-card p {
-        color: #718096;
-        font-size: 0.9rem;
-        margin-bottom: 1.2rem;
-        line-height: 1.6;
-        min-height: 2.5rem;
-    }
-
-    .permission-badge {
-        display: inline-block;
-        padding: 0.4rem 0.9rem;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        margin-bottom: 1rem;
-    }
-
-    .card-action {
-        display: flex;
-        justify-content: flex-end;
-        margin-top: 1rem;
-        padding-top: 1rem;
-        border-top: 1px solid #e2e8f0;
-    }
-
-    .btn-action {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.6rem 1.2rem;
-        border-radius: 8px;
-        font-weight: 500;
-        text-decoration: none;
-        transition: all 0.2s;
-        font-size: 0.9rem;
-    }
-
-    .function-card:not(.disabled) .btn-action {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-    }
-
-    .function-card:not(.disabled) .btn-action:hover {
-        transform: translateX(5px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-
-    .function-card.disabled .btn-action {
-        background: #e2e8f0;
-        color: #a0aec0;
-        cursor: not-allowed;
-        pointer-events: none;
-    }
-
-    /* ==================== 快速動作區 ==================== */
-    .quick-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-
-    .quick-action-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.8rem;
-        padding: 0.8rem 1.5rem;
-        border-radius: 10px;
-        font-weight: 500;
-        text-decoration: none;
-        transition: all 0.3s;
-        border: 2px solid;
-        font-size: 0.95rem;
-    }
-
-    .quick-action-btn i {
-        font-size: 1.2rem;
-    }
-
-    .quick-action-btn:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 16px rgba(0,0,0,0.15);
-    }
-
-    .quick-action-btn.primary {
-        background: #667eea;
-        color: white;
-        border-color: #667eea;
-    }
-
-    .quick-action-btn.primary:hover {
-        background: #5568d3;
-        border-color: #5568d3;
-    }
-
-    .quick-action-btn.secondary {
-        background: white;
-        color: #667eea;
-        border-color: #667eea;
-    }
-
-    .quick-action-btn.secondary:hover {
-        background: #667eea;
-        color: white;
-    }
-
-    .quick-action-btn.success {
-        background: #48bb78;
-        color: white;
-        border-color: #48bb78;
-    }
-
-    .quick-action-btn.success:hover {
-        background: #38a169;
-        border-color: #38a169;
-    }
-
-    .quick-action-btn.warning {
-        background: #ed8936;
-        color: white;
-        border-color: #ed8936;
-    }
-
-    .quick-action-btn.warning:hover {
-        background: #dd6b20;
-        border-color: #dd6b20;
-    }
-
-    /* ==================== 響應式設計 ==================== */
     @media (max-width: 768px) {
-        .main-container {
-            padding: 1rem 0.5rem;
-        }
-
-        .welcome-section {
-            padding: 1.5rem;
-        }
-
-        .welcome-section h2 {
-            font-size: 1.5rem;
-        }
-
-        .user-info {
-            gap: 1rem;
-            font-size: 0.85rem;
-        }
-
-        .function-grid {
-            grid-template-columns: 1fr;
-            gap: 1rem;
-        }
-
-        .quick-actions {
-            flex-direction: column;
-        }
-
-        .quick-action-btn {
-            width: 100%;
-            justify-content: center;
-        }
+        .main-container { padding: 1rem 0.5rem; }
+        .welcome-section { padding: 1.5rem; }
+        .welcome-section h2 { font-size: 1.5rem; }
+        .user-info { gap: 1rem; font-size: 0.85rem; }
+        .function-grid { grid-template-columns: 1fr; gap: 1rem; }
+        .quick-actions { flex-direction: column; }
+        .quick-action-btn { width: 100%; justify-content: center; }
     }
 </style>
 
-
-
-
-
 <div class="container mt-4">
+
     <!-- 歡迎區塊 -->
-<div class="welcome-section">
-    <h2><i class="bi bi-house-door me-2"></i>歡迎回來,{{ current_user_name }}</h2>
-    <div class="user-info">
-        <span><i class="bi bi-person-badge me-1"></i>工號: {{ current_user_id }}</span>
-        <span class="badge bg-{{ role_class }}">{{ role_display }}</span>
-        <span><i class="bi bi-clock me-1"></i>登入時間: {{ login_time }}</span>
+    <div class="welcome-section">
+        <h2><i class="bi bi-house-door me-2"></i>歡迎回來，{{ current_user_name }}</h2>
+        
     </div>
+
+    <!-- 快速動作 -->
+    <div class="section-title">
+        <i class="bi bi-lightning-charge-fill"></i>
+        <h3>快速動作</h3>
+    </div>
+
+    <div class="quick-actions">
+        <a href="{% url 'material:box_list' %}" class="quick-action-btn primary">
+            <i class="bi bi-box-seam"></i> 查看容器
+        </a>
+        <a href="{% url 'material:material_list' %}" class="quick-action-btn secondary">
+            <i class="bi bi-list-ul"></i> 查看物品
+        </a>
+        {% if is_admin or is_manager %}
+        <a href="{% url 'material:box_checkin' %}" class="quick-action-btn success">
+            <i class="bi bi-box-arrow-in-down"></i> 快速入庫
+        </a>
+        {% endif %}
+        <a href="{% url 'material:transaction_history' %}" class="quick-action-btn warning">
+            <i class="bi bi-clock-history"></i> 查看記錄
+        </a>
+    </div>
+
+
+    <!-- 系統功能 -->
+    <div class="section-title">
+        <i class="bi bi-grid-3x3-gap-fill"></i>
+        <h3>系統功能</h3>
+    </div>
+
+    <div class="function-grid">
+
+        <!-- 容器管理 -->
+        <div class="function-card {% if feature_cards.box_list.disabled %}disabled{% endif %}" data-function="box_list">
+            <div class="stat-number">{{ stats.total_boxes }}</div>
+            <div class="card-icon"><i class="bi {{ feature_cards.box_list.icon }}"></i></div>
+            <h4>{{ feature_cards.box_list.name }}</h4>
+            <p>{{ feature_cards.box_list.description }}</p>
+            <div class="card-action">
+                {% if not feature_cards.box_list.disabled %}
+                    <a href="{% url feature_cards.box_list.url %}" class="btn-action">前往使用 <i class="bi bi-arrow-right-circle"></i></a>
+                {% else %}
+                    <span class="btn-action">暫不可用 <i class="bi bi-x-circle"></i></span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 物品管理 -->
+        <div class="function-card {% if feature_cards.material_list.disabled %}disabled{% endif %}" data-function="material_list">
+            <div class="stat-number">{{ stats.total_items }}</div>
+            <div class="card-icon"><i class="bi {{ feature_cards.material_list.icon }}"></i></div>
+            <h4>{{ feature_cards.material_list.name }}</h4>
+            <p>{{ feature_cards.material_list.description }}</p>
+            <div class="card-action">
+                {% if not feature_cards.material_list.disabled %}
+                    <a href="{% url feature_cards.material_list.url %}" class="btn-action">前往使用 <i class="bi bi-arrow-right-circle"></i></a>
+                {% else %}
+                    <span class="btn-action">暫不可用 <i class="bi bi-x-circle"></i></span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 物品調撥 -->
+        <div class="function-card {% if feature_cards.transaction_transfer.disabled %}disabled{% endif %}" data-function="transaction_transfer">
+            <div class="stat-number"><i class="bi bi-check-lg"></i></div>
+            <div class="card-icon"><i class="bi {{ feature_cards.transaction_transfer.icon }}"></i></div>
+            <h4>{{ feature_cards.transaction_transfer.name }}</h4>
+            <p>{{ feature_cards.transaction_transfer.description }}</p>
+            <div class="card-action">
+                {% if not feature_cards.transaction_transfer.disabled %}
+                    <a href="{% url feature_cards.transaction_transfer.url %}" class="btn-action">前往使用 <i class="bi bi-arrow-right-circle"></i></a>
+                {% else %}
+                    <span class="btn-action">暫不可用 <i class="bi bi-x-circle"></i></span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 新增容器 -->
+        <div class="function-card {% if feature_cards.box_add.disabled %}disabled{% endif %}" data-function="box_add">
+            <div class="stat-number">{{ stats.locked_boxes }}</div>
+            <div class="card-icon"><i class="bi {{ feature_cards.box_add.icon }}"></i></div>
+            <h4>{{ feature_cards.box_add.name }}</h4>
+            <p>{{ feature_cards.box_add.description }}</p>
+            <div class="card-action">
+                {% if not feature_cards.box_add.disabled %}
+                    <a href="{% url feature_cards.box_add.url %}" class="btn-action">前往使用 <i class="bi bi-arrow-right-circle"></i></a>
+                {% else %}
+                    <span class="btn-action">暫不可用 <i class="bi bi-x-circle"></i></span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 交易記錄 -->
+        <div class="function-card {% if feature_cards.transaction_history.disabled %}disabled{% endif %}" data-function="transaction_history">
+            <div class="stat-number">{{ stats.recent_transactions }}</div>
+            <div class="card-icon"><i class="bi {{ feature_cards.transaction_history.icon }}"></i></div>
+            <h4>{{ feature_cards.transaction_history.name }}</h4>
+            <p>{{ feature_cards.transaction_history.description }}</p>
+            <div class="card-action">
+                {% if not feature_cards.transaction_history.disabled %}
+                    <a href="{% url feature_cards.transaction_history.url %}" class="btn-action">前往使用 <i class="bi bi-arrow-right-circle"></i></a>
+                {% else %}
+                    <span class="btn-action">暫不可用 <i class="bi bi-x-circle"></i></span>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    
+
 </div>
-
-
-
-<!-- 系統功能 -->
-<div class="section-title">
-    <i class="bi bi-grid-3x3-gap-fill"></i>
-    <h3>系統功能</h3>
-</div>
-
-<div class="function-grid">
-    <!-- ✅ 容器管理 - 顯示總容器數 -->
-    <div class="function-card {% if permissions.box_list.disabled %}disabled{% endif %}" data-function="box_list">
-        <div class="stat-number">{{ stats.total_boxes }}</div>
-        <div class="card-icon">
-            <i class="bi {{ permissions.box_list.icon }}"></i>
-        </div>
-        <h4>{{ permissions.box_list.name }}</h4>
-        <p>{{ permissions.box_list.description }}</p>
-        <span class="permission-badge bg-{{ permissions.box_list.permission_class }} text-white">
-            {{ permissions.box_list.permission }}
-        </span>
-        <div class="card-action">
-            {% if not permissions.box_list.disabled %}
-                <a href="{% url permissions.box_list.url %}" class="btn-action">
-                    前往使用 <i class="bi bi-arrow-right-circle"></i>
-                </a>
-            {% else %}
-                <span class="btn-action">
-                    權限不足 <i class="bi bi-x-circle"></i>
-                </span>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- ✅ 物品管理 - 顯示總物品數 -->
-    <div class="function-card {% if permissions.item_list.disabled %}disabled{% endif %}" data-function="item_list">
-        <div class="stat-number">{{ stats.total_items }}</div>
-        <div class="card-icon">
-            <i class="bi {{ permissions.item_list.icon }}"></i>
-        </div>
-        <h4>{{ permissions.item_list.name }}</h4>
-        <p>{{ permissions.item_list.description }}</p>
-        <span class="permission-badge bg-{{ permissions.item_list.permission_class }} text-white">
-            {{ permissions.item_list.permission }}
-        </span>
-        <div class="card-action">
-            {% if not permissions.item_list.disabled %}
-                <a href="{% url permissions.item_list.url %}" class="btn-action">
-                    前往使用 <i class="bi bi-arrow-right-circle"></i>
-                </a>
-            {% else %}
-                <span class="btn-action">
-                    權限不足 <i class="bi bi-x-circle"></i>
-                </span>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- 物品調撥 - 可使用圖標 -->
-    <div class="function-card {% if permissions.transaction_transfer.disabled %}disabled{% endif %}">
-        <div class="stat-number"><i class="bi bi-check-lg"></i></div>
-        <div class="card-icon">
-            <i class="bi {{ permissions.transaction_transfer.icon }}"></i>
-        </div>
-        <h4>{{ permissions.transaction_transfer.name }}</h4>
-        <p>{{ permissions.transaction_transfer.description }}</p>
-        <span class="permission-badge bg-{{ permissions.transaction_transfer.permission_class }} text-white">
-            {{ permissions.transaction_transfer.permission }}
-        </span>
-        <div class="card-action">
-            {% if not permissions.transaction_transfer.disabled %}
-                <a href="{% url permissions.transaction_transfer.url %}" class="btn-action">
-                    前往使用 <i class="bi bi-arrow-right-circle"></i>
-                </a>
-            {% else %}
-                <span class="btn-action">
-                    權限不足 <i class="bi bi-x-circle"></i>
-                </span>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- ✅ 新增容器 - 顯示已鎖定數量 -->
-    <div class="function-card {% if permissions.box_add.disabled %}disabled{% endif %}" data-function="box_add">
-        <div class="stat-number">{{ stats.locked_boxes }}</div>
-        <div class="card-icon">
-            <i class="bi {{ permissions.box_add.icon }}"></i>
-        </div>
-        <h4>{{ permissions.box_add.name }}</h4>
-        <p>{{ permissions.box_add.description }}</p>
-        <span class="permission-badge bg-{{ permissions.box_add.permission_class }} text-white">
-            {{ permissions.box_add.permission }}
-        </span>
-        <div class="card-action">
-            {% if not permissions.box_add.disabled %}
-                <a href="{% url permissions.box_add.url %}" class="btn-action">
-                    前往使用 <i class="bi bi-arrow-right-circle"></i>
-                </a>
-            {% else %}
-                <span class="btn-action">
-                    權限不足 <i class="bi bi-x-circle"></i>
-                </span>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- ✅ 交易記錄 - 顯示交易數量 -->
-    <div class="function-card {% if permissions.transaction_history.disabled %}disabled{% endif %}" data-function="transaction_history">
-        <div class="stat-number">{{ stats.recent_transactions }}</div>
-        <div class="card-icon">
-            <i class="bi {{ permissions.transaction_history.icon }}"></i>
-        </div>
-        <h4>{{ permissions.transaction_history.name }}</h4>
-        <p>{{ permissions.transaction_history.description }}</p>
-        <span class="permission-badge bg-{{ permissions.transaction_history.permission_class }} text-white">
-            {{ permissions.transaction_history.permission }}
-        </span>
-        <div class="card-action">
-            {% if not permissions.transaction_history.disabled %}
-                <a href="{% url permissions.transaction_history.url %}" class="btn-action">
-                    前往使用 <i class="bi bi-arrow-right-circle"></i>
-                </a>
-            {% else %}
-                <span class="btn-action">
-                    權限不足 <i class="bi bi-x-circle"></i>
-                </span>
-            {% endif %}
-        </div>
-    </div>
-</div>
-
-<!-- 快速動作 -->
-<div class="section-title">
-    <i class="bi bi-lightning-charge-fill"></i>
-    <h3>快速動作</h3>
-</div>
-
-<div class="quick-actions">
-    <a href="{% url 'material:box_list' %}" class="quick-action-btn primary">
-        <i class="bi bi-box-seam"></i>
-        查看容器
-    </a>
-
-    <a href="{% url 'material:item_list' %}" class="quick-action-btn secondary">
-        <i class="bi bi-list-ul"></i>
-        查看物品
-    </a>
-
-    {% if is_admin or is_manager %}
-    <a href="{% url 'material:box_checkin' %}" class="quick-action-btn success">
-        <i class="bi bi-box-arrow-in-down"></i>
-        快速入庫
-    </a>
-    {% endif %}
-
-    <a href="{% url 'material:transaction_history' %}" class="quick-action-btn warning">
-        <i class="bi bi-clock-history"></i>
-        查看記錄
-    </a>
-</div>
-
-<script>
-// 顯示當前時間
-function updateTime() {
-    const now = new Date();
-    const timeStr = now.toLocaleString('zh-TW', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
-    document.getElementById('current-time').textContent = timeStr;
-}
-
-// 初始化並每秒更新時間
-updateTime();
-setInterval(updateTime, 1000);
-
-// 卡片hover效果
-document.querySelectorAll('.card[style*="cursor: pointer"]').forEach(card => {
-    card.addEventListener('mouseenter', function() {
-        this.classList.add('shadow');
-    });
-    card.addEventListener('mouseleave', function() {
-        this.classList.remove('shadow');
-    });
-});
-</script>
 {% endblock %}
