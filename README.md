@@ -78,6 +78,25 @@ Employee → 查看 + 入出庫
 | Excel 匯入/匯出 | 支援批次建立容器資料 |
 
 ---
+## 系統截圖
+
+### 控制台
+![控制台](shortcut/dashboard.png)
+
+### 箱子列表
+![箱子列表](shortcut/box_list.png)
+
+### BOM 管理
+![BOM管理](shortcut/bom.png)
+
+### 交易記錄
+![交易記錄](shortcut/transaction.png)
+
+### 物料庫存
+![物料庫存](shortcut/material_list.png)
+
+### 登入頁面
+![登入](shortcut/login.png)
 
 ## 資料模型設計
 
