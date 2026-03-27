@@ -5,342 +5,75 @@
 
 {% block extra_css %}
 <style>
-    /* ===== 統計卡片 ===== */
     .stats-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 20px;
-        margin-bottom: 25px;
+        gap: 20px; margin-bottom: 25px;
     }
-
     .stat-card {
-        background: white;
-        border-radius: 10px;
-        padding: 24px;
+        background: white; border-radius: 10px; padding: 24px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        display: flex;
-        align-items: center;
-        gap: 16px;
+        display: flex; align-items: center; gap: 16px;
         transition: transform 0.2s, box-shadow 0.2s;
     }
-
-    .stat-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-    }
-
+    .stat-card:hover { transform: translateY(-4px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
     .stat-icon {
-        width: 56px;
-        height: 56px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.5rem;
-        flex-shrink: 0;
+        width: 56px; height: 56px; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.5rem; flex-shrink: 0;
     }
+    .stat-card.total    .stat-icon { background: linear-gradient(135deg,#667eea,#764ba2); color:white; }
+    .stat-card.checkin  .stat-icon { background: linear-gradient(135deg,#11998e,#38ef7d); color:white; }
+    .stat-card.transfer .stat-icon { background: linear-gradient(135deg,#4facfe,#00f2fe); color:white; }
+    .stat-card.checkout .stat-icon { background: linear-gradient(135deg,#fa709a,#fee140); color:white; }
+    .stat-content h6 { margin:0 0 6px 0; font-size:13px; color:#6c757d; font-weight:500; }
+    .stat-content h2 { margin:0; font-size:2rem; font-weight:700; color:#1e1b4b; }
 
-    .stat-card.total .stat-icon {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-    }
+    .filter-panel { background:white; border-radius:10px; padding:25px; box-shadow:0 2px 8px rgba(0,0,0,0.05); margin-bottom:20px; }
+    .filter-panel h5 { margin:0 0 20px 0; font-size:1.1rem; font-weight:600; color:#1e1b4b; display:flex; align-items:center; gap:8px; }
+    .filter-panel h5 i { color:#667eea; }
+    .filter-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:16px; }
+    .filter-group label { display:block; font-size:13px; font-weight:600; color:#495057; margin-bottom:6px; }
+    .filter-group input, .filter-group select { width:100%; padding:9px 12px; border:1px solid #ced4da; border-radius:6px; font-size:14px; }
+    .filter-group input:focus, .filter-group select:focus { outline:none; border-color:#667eea; box-shadow:0 0 0 3px rgba(102,126,234,0.1); }
+    .filter-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .btn-filter { padding:9px 20px; border:none; border-radius:6px; font-size:14px; font-weight:500; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+    .btn-filter-apply { background:linear-gradient(135deg,#667eea,#764ba2); color:white; }
+    .btn-filter-apply:hover { opacity:0.9; }
+    .btn-filter-clear { background:#6c757d; color:white; }
+    .filter-count { font-size:13px; color:#6c757d; margin-left:8px; }
+    .filter-count strong { color:#667eea; font-weight:600; }
 
-    .stat-card.checkin .stat-icon {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        color: white;
-    }
+    .history-card { background:white; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.05); overflow:hidden; }
+    .history-card-header { padding:20px 25px; border-bottom:1px solid #e9ecef; background:#f8f9fa; }
+    .history-card-header h5 { margin:0; font-size:1.1rem; font-weight:600; color:#1e1b4b; display:flex; align-items:center; gap:8px; }
+    .history-card-header h5 i { color:#667eea; }
+    .table-wrapper { overflow-x:auto; }
+    .history-table { width:100%; border-collapse:collapse; font-size:14px; }
+    .history-table thead { background:#f8f9fa; }
+    .history-table thead th { padding:14px 16px; text-align:left; font-weight:600; color:#495057; font-size:13px; border-bottom:2px solid #dee2e6; white-space:nowrap; }
+    .history-table tbody tr { border-bottom:1px solid #e9ecef; transition:background 0.15s; }
+    .history-table tbody tr:hover { background:#f8f9fa; }
+    .history-table td { padding:14px 16px; color:#495057; }
 
-    .stat-card.transfer .stat-icon {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        color: white;
-    }
+    .badge-custom { display:inline-block; padding:5px 12px; border-radius:6px; font-size:12px; font-weight:600; white-space:nowrap; }
+    .badge-IN     { background:#d1e7dd; color:#0f5132; }
+    .badge-OUT    { background:#f8d7da; color:#842029; }
+    .badge-MOVE   { background:#cfe2ff; color:#084298; }
+    .badge-ADJUST { background:#fff3cd; color:#664d03; }
+    .badge-BORROW { background:#e2d9f3; color:#3d0a91; }
+    .badge-RETURN { background:#d1ecf1; color:#0c5460; }
 
-    .stat-card.checkout .stat-icon {
-        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-        color: white;
-    }
-
-    .stat-content h6 {
-        margin: 0 0 6px 0;
-        font-size: 13px;
-        color: #6c757d;
-        font-weight: 500;
-    }
-
-    .stat-content h2 {
-        margin: 0;
-        font-size: 2rem;
-        font-weight: 700;
-        color: #1e1b4b;
-    }
-
-    /* ===== 篩選面板 ===== */
-    .filter-panel {
-        background: white;
-        border-radius: 10px;
-        padding: 25px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        margin-bottom: 20px;
-    }
-
-    .filter-panel h5 {
-        margin: 0 0 20px 0;
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #1e1b4b;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .filter-panel h5 i {
-        color: #667eea;
-    }
-
-    .filter-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 16px;
-        margin-bottom: 16px;
-    }
-
-    .filter-group label {
-        display: block;
-        font-size: 13px;
-        font-weight: 600;
-        color: #495057;
-        margin-bottom: 6px;
-    }
-
-    .filter-group input,
-    .filter-group select {
-        width: 100%;
-        padding: 9px 12px;
-        border: 1px solid #ced4da;
-        border-radius: 6px;
-        font-size: 14px;
-        transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    .filter-group input:focus,
-    .filter-group select:focus {
-        outline: none;
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
-    }
-
-    .filter-actions {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        flex-wrap: wrap;
-    }
-
-    .btn-filter {
-        padding: 9px 20px;
-        border: none;
-        border-radius: 6px;
-        font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        transition: all 0.2s;
-    }
-
-    .btn-filter-apply {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-    }
-
-    .btn-filter-apply:hover {
-        opacity: 0.9;
-        transform: translateY(-2px);
-    }
-
-    .btn-filter-clear {
-        background: #6c757d;
-        color: white;
-    }
-
-    .btn-filter-clear:hover {
-        background: #5c636a;
-    }
-
-    .filter-count {
-        font-size: 13px;
-        color: #6c757d;
-        margin-left: 8px;
-    }
-
-    .filter-count strong {
-        color: #667eea;
-        font-weight: 600;
-    }
-
-    /* ===== 歷史記錄表格 ===== */
-    .history-card {
-        background: white;
-        border-radius: 10px;
-        padding: 0;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        overflow: hidden;
-    }
-
-    .history-card-header {
-        padding: 20px 25px;
-        border-bottom: 1px solid #e9ecef;
-        background: #f8f9fa;
-    }
-
-    .history-card-header h5 {
-        margin: 0;
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #1e1b4b;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .history-card-header h5 i {
-        color: #667eea;
-    }
-
-    .table-wrapper {
-        overflow-x: auto;
-    }
-
-    .history-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 14px;
-    }
-
-    .history-table thead {
-        background: #f8f9fa;
-    }
-
-    .history-table thead th {
-        padding: 14px 16px;
-        text-align: left;
-        font-weight: 600;
-        color: #495057;
-        font-size: 13px;
-        border-bottom: 2px solid #dee2e6;
-        white-space: nowrap;
-    }
-
-    .history-table tbody tr {
-        border-bottom: 1px solid #e9ecef;
-        transition: background 0.15s;
-    }
-
-    .history-table tbody tr:hover {
-        background: #f8f9fa;
-    }
-
-    .history-table tbody tr:last-child {
-        border-bottom: none;
-    }
-
-    .history-table td {
-        padding: 14px 16px;
-        color: #495057;
-    }
-
-    /* ===== Badge 樣式 ===== */
-    .badge-custom {
-        display: inline-block;
-        padding: 5px 12px;
-        border-radius: 6px;
-        font-size: 12px;
-        font-weight: 600;
-        white-space: nowrap;
-    }
-
-    .badge-checkin {
-        background: #d1e7dd;
-        color: #0f5132;
-    }
-
-    .badge-checkout {
-        background: #f8d7da;
-        color: #842029;
-    }
-
-    .badge-transfer {
-        background: #cfe2ff;
-        color: #084298;
-    }
-
-    .badge-adjust {
-        background: #fff3cd;
-        color: #664d03;
-    }
-
-    /* ===== 其他樣式 ===== */
-    .item-name {
-        font-weight: 600;
-        color: #1e1b4b;
-    }
-
-    .item-spec {
-        font-size: 12px;
-        color: #6c757d;
-        margin-top: 2px;
-    }
-
-    .qty-badge {
-        font-weight: 700;
-        color: #667eea;
-        font-size: 15px;
-    }
-
-    .box-badge {
-        font-size: 13px;
-        color: #495057;
-    }
-
-    .stock-change {
-        font-size: 12px;
-        color: #6c757d;
-        white-space: nowrap;
-    }
-
-    .time-cell {
-        color: #6c757d;
-        font-size: 13px;
-        white-space: nowrap;
-    }
-
-    .remark-cell {
-        max-width: 180px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        font-size: 13px;
-        color: #6c757d;
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 60px 20px;
-        color: #9ca3af;
-    }
-
-    .empty-state i {
-        font-size: 3.5rem;
-        display: block;
-        margin-bottom: 16px;
-        color: #d1d5db;
-    }
-
-    .empty-state p {
-        font-size: 15px;
-        margin: 0;
-    }
+    .item-name { font-weight:600; color:#1e1b4b; }
+    .item-spec  { font-size:12px; color:#6c757d; margin-top:2px; }
+    .qty-badge  { font-weight:700; color:#667eea; font-size:15px; }
+    .box-badge  { font-size:13px; color:#495057; }
+    .stock-change { font-size:12px; color:#6c757d; white-space:nowrap; }
+    .time-cell  { color:#6c757d; font-size:13px; white-space:nowrap; }
+    .remark-cell { max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:#6c757d; }
+    .empty-state { text-align:center; padding:60px 20px; color:#9ca3af; }
+    .empty-state i { font-size:3.5rem; display:block; margin-bottom:16px; color:#d1d5db; }
+    .empty-state p { font-size:15px; margin:0; }
 </style>
 {% endblock %}
 
@@ -350,42 +83,35 @@
     <!-- 統計卡片 -->
     <div class="stats-grid">
         <div class="stat-card total">
-            <div class="stat-icon">
-                <i class="bi bi-clipboard-data"></i>
-            </div>
+            <div class="stat-icon"><i class="bi bi-clipboard-data"></i></div>
             <div class="stat-content">
                 <h6>總交易筆數</h6>
+                {# 舊版：stats.total → 新版：同名，不變 #}
                 <h2>{{ stats.total }}</h2>
             </div>
         </div>
-
         <div class="stat-card checkin">
-            <div class="stat-icon">
-                <i class="bi bi-box-arrow-in-down"></i>
-            </div>
+            <div class="stat-icon"><i class="bi bi-box-arrow-in-down"></i></div>
             <div class="stat-content">
                 <h6>入庫次數</h6>
-                <h2>{{ stats.checkin }}</h2>
+                {# 舊版：stats.checkin → 新版：stats.stock_in #}
+                <h2>{{ stats.stock_in }}</h2>
             </div>
         </div>
-
         <div class="stat-card transfer">
-            <div class="stat-icon">
-                <i class="bi bi-arrow-left-right"></i>
-            </div>
+            <div class="stat-icon"><i class="bi bi-arrow-left-right"></i></div>
             <div class="stat-content">
                 <h6>調撥次數</h6>
-                <h2>{{ stats.transfer }}</h2>
+                {# 舊版：stats.transfer → 新版：stats.move #}
+                <h2>{{ stats.move }}</h2>
             </div>
         </div>
-
         <div class="stat-card checkout">
-            <div class="stat-icon">
-                <i class="bi bi-box-arrow-up"></i>
-            </div>
+            <div class="stat-icon"><i class="bi bi-box-arrow-up"></i></div>
             <div class="stat-content">
                 <h6>出庫次數</h6>
-                <h2>{{ stats.checkout }}</h2>
+                {# 舊版：stats.checkout → 新版：stats.stock_out #}
+                <h2>{{ stats.stock_out }}</h2>
             </div>
         </div>
     </div>
@@ -395,39 +121,40 @@
         <h5><i class="bi bi-funnel"></i> 篩選條件</h5>
         <div class="filter-grid">
             <div class="filter-group">
-                <label for="filter_date">交易日期</label>
-                <input type="date" class="form-control" id="filter_date">
+                <label>交易日期</label>
+                <input type="date" id="filter_date">
             </div>
             <div class="filter-group">
-                <label for="filter_type">交易類型</label>
-                <select class="form-select" id="filter_type">
+                <label>交易類型</label>
+                <select id="filter_type">
                     <option value="">-- 全部 --</option>
-                    <option value="入庫">入庫</option>
-                    <option value="出庫">出庫</option>
-                    <option value="調撥">調撥</option>
-
+                    {# 舊版：中文選項 → 新版：英文 choices 對應 action_type #}
+                    <option value="IN">入庫</option>
+                    <option value="OUT">出庫</option>
+                    <option value="MOVE">調撥</option>
+                    <option value="ADJUST">調整</option>
+                    <option value="BORROW">借用</option>
+                    <option value="RETURN">歸還</option>
                 </select>
             </div>
             <div class="filter-group">
-                <label for="filter_item">物品名稱</label>
-                <input type="text" class="form-control" id="filter_item" placeholder="輸入物品名稱">
+                <label>物品名稱</label>
+                <input type="text" id="filter_item" placeholder="輸入物品名稱">
             </div>
             <div class="filter-group">
-                <label for="filter_from_box">來源容器</label>
-                <input type="text" class="form-control" id="filter_from_box" placeholder="輸入容器編號">
+                <label>來源容器</label>
+                <input type="text" id="filter_from_box" placeholder="輸入容器編號">
             </div>
             <div class="filter-group">
-                <label for="filter_operator">操作人員</label>
-                <select class="form-select" id="filter_operator">
-                    <option value="">-- 全部人員 --</option>
-                </select>
+                <label>操作人員</label>
+                <input type="text" id="filter_operator" placeholder="輸入 username">
             </div>
         </div>
         <div class="filter-actions">
-            <button type="button" class="btn-filter btn-filter-apply" onclick="applyFilter()">
+            <button class="btn-filter btn-filter-apply" onclick="applyFilter()">
                 <i class="bi bi-search"></i> 篩選
             </button>
-            <button type="button" class="btn-filter btn-filter-clear" onclick="clearFilter()">
+            <button class="btn-filter btn-filter-clear" onclick="clearFilter()">
                 <i class="bi bi-x-circle"></i> 清除
             </button>
             <span class="filter-count" id="filter_count"></span>
@@ -443,56 +170,49 @@
             <table class="history-table">
                 <thead>
                     <tr>
-                        <th>時間</th>
-                        <th>交易類型</th>
-                        <th>物品</th>
-                        <th>數量</th>
-                        <th>來源箱子</th>
-                        <th>目標箱子</th>
-                        <th>庫存變化</th>
-                        <th>操作人員</th>
-                        <th>備註</th>
+                        <th>時間</th><th>交易類型</th><th>物品</th><th>數量</th>
+                        <th>來源箱子</th><th>目標箱子</th><th>庫存變化</th>
+                        <th>操作人員</th><th>備註</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for trans in transactions %}
                     <tr class="trans-row"
-    data-date="{{ trans.Timestamp|date:'Y-m-d' }}"
-    data-type="{{ trans.ActionType }}"
-    data-item="{{ trans.SN.ItemName }}"
-    data-from="{{ trans.FromBoxID|default:'' }}"
-    data-to="{{ trans.ToBoxID|default:'' }}"
-    data-operator="{{ trans.operator_display|default:'' }}">
+                        data-date="{{ trans.timestamp|date:'Y-m-d' }}"
+                        data-type="{{ trans.action_type }}"
+                        data-item="{{ trans.item.item_name|default:'' }}"
+                        data-from="{{ trans.from_box_id|default:'' }}"
+                        data-to="{{ trans.to_box_id|default:'' }}"
+                        data-operator="{{ trans.operator.username|default:'' }}">
 
-                        <td class="time-cell">{{ trans.Timestamp|date:"Y-m-d H:i" }}</td>
+                        <td class="time-cell">{{ trans.timestamp|date:"Y-m-d H:i" }}</td>
                         <td>
-                            {% if trans.ActionType == '入庫' %}
-                                <span class="badge-custom badge-checkin">{{ trans.ActionType }}</span>
-                            {% elif trans.ActionType == '出庫' %}
-                                <span class="badge-custom badge-checkout">{{ trans.ActionType }}</span>
-                            {% elif trans.ActionType == '調撥' %}
-                                <span class="badge-custom badge-transfer">{{ trans.ActionType }}</span>
-                            {% else %}
-                                <span class="badge-custom badge-adjust">{{ trans.ActionType }}</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <div class="item-name">{{ trans.SN.ItemName }}</div>
-                            {% if trans.SN.Spec %}
-                                <div class="item-spec">{{ trans.SN.Spec }}</div>
-                            {% endif %}
-                        </td>
-                        <td><span class="qty-badge">{{ trans.TransQty }}</span></td>
-                        <td><span class="box-badge">{{ trans.FromBoxID|default:"—" }}</span></td>
-                        <td><span class="box-badge">{{ trans.ToBoxID|default:"—" }}</span></td>
-                        <td>
-                            <span class="stock-change">
-                                {{ trans.StockBefore }} → {{ trans.StockAfter }}
+                            {# 舊版：中文判斷 → 新版：英文 choices #}
+                            <span class="badge-custom badge-{{ trans.action_type }}">
+                                {{ trans.get_action_type_display }}
                             </span>
                         </td>
-                        <td>{{ trans.operator_display }}</td>
-                        <td class="remark-cell" title="{{ trans.Remark|default:'—' }}">
-                            {{ trans.Remark|default:"—" }}
+                        <td>
+                            {% if trans.item %}
+                                <div class="item-name">{{ trans.item.item_name }}</div>
+                                {% if trans.item.spec %}
+                                    <div class="item-spec">{{ trans.item.spec }}</div>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">已刪除物品</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="qty-badge">{{ trans.trans_qty }}</span></td>
+                        <td><span class="box-badge">{{ trans.from_box_id|default:"—" }}</span></td>
+                        <td><span class="box-badge">{{ trans.to_box_id|default:"—" }}</span></td>
+                        <td>
+                            <span class="stock-change">
+                                {{ trans.stock_before }} → {{ trans.stock_after }}
+                            </span>
+                        </td>
+                        <td>{{ trans.operator.username|default:"—" }}</td>
+                        <td class="remark-cell" title="{{ trans.remark|default:'—' }}">
+                            {{ trans.remark|default:"—" }}
                         </td>
                     </tr>
                     {% empty %}
@@ -514,56 +234,8 @@
 
 {% block extra_js %}
 <script>
-
-// 在交易記錄頁面 (transaction_history.html)
-
-// Employee: 自動呼叫 /my 端點
-async function loadMyTransactions() {
-    try {
-        const response = await fetch('/material/api/transactions/my/');
-        const data = await response.json();
-
-        if (data.success) {
-            console.log(`載入了 ${data.count} 筆個人記錄`);
-            renderTransactions(data.transactions);
-        }
-    } catch (error) {
-        console.error('載入失敗:', error);
-    }
-}
-
-// Manager/Admin: 可選擇呼叫 /all 端點
-async function loadAllTransactions() {
-    try {
-        const response = await fetch('/material/api/transactions/all/');
-        const data = await response.json();
-
-        if (data.success) {
-            console.log(`載入了 ${data.count} 筆全部記錄`);
-            renderTransactions(data.transactions);
-        } else if (response.status === 403) {
-            alert('權限不足');
-        }
-    } catch (error) {
-        console.error('載入失敗:', error);
-    }
-}
-
-// 根據使用者角色自動選擇
-const userRole = '{{ user_role }}';  // 從 template 取得
-
-if (userRole === 'admin' || userRole === 'manager') {
-    loadAllTransactions();
-} else {
-    loadMyTransactions();
-}
-
-
-// ========================================================
-// 篩選功能
-// ========================================================
 function applyFilter() {
-    const filterDate     = document.getElementById('filter_date').value; // YYYY-MM-DD
+    const filterDate     = document.getElementById('filter_date').value;
     const filterType     = document.getElementById('filter_type').value;
     const filterItem     = document.getElementById('filter_item').value.toLowerCase().trim();
     const filterFromBox  = document.getElementById('filter_from_box').value.toLowerCase().trim();
@@ -573,56 +245,33 @@ function applyFilter() {
     let visibleCount = 0;
 
     rows.forEach(row => {
-        const rowDate  = row.dataset.date;
-        const type     = row.dataset.type;
-        const item     = row.dataset.item.toLowerCase();
-        const fromBox  = row.dataset.from.toLowerCase();
-        const toBox    = row.dataset.to.toLowerCase();
-        const operator = row.dataset.operator.toLowerCase();
-
         const match =
-            (!filterDate     || rowDate === filterDate)         &&
-            (!filterType     || type === filterType)            &&
-            (!filterItem     || item.includes(filterItem))      &&
-            (!filterFromBox  || fromBox.includes(filterFromBox) || toBox.includes(filterFromBox)) &&
-            (!filterOperator || operator.includes(filterOperator));
+            (!filterDate     || row.dataset.date === filterDate)                        &&
+            (!filterType     || row.dataset.type === filterType)                        &&
+            (!filterItem     || row.dataset.item.toLowerCase().includes(filterItem))    &&
+            (!filterFromBox  || row.dataset.from.toLowerCase().includes(filterFromBox)
+                             || row.dataset.to.toLowerCase().includes(filterFromBox))  &&
+            (!filterOperator || row.dataset.operator.toLowerCase().includes(filterOperator));
 
         row.style.display = match ? '' : 'none';
         if (match) visibleCount++;
     });
 
-    document.getElementById('filter_count').innerHTML = `顯示 <strong>${visibleCount}</strong> / ${rows.length} 筆紀錄`;
+    document.getElementById('filter_count').innerHTML =
+        `顯示 <strong>${visibleCount}</strong> / ${rows.length} 筆紀錄`;
 }
 
 function clearFilter() {
-    ['filter_date', 'filter_type', 'filter_item', 'filter_from_box', 'filter_operator'].forEach(id => {
-        document.getElementById(id).value = '';
-    });
+    ['filter_date', 'filter_type', 'filter_item', 'filter_from_box', 'filter_operator']
+        .forEach(id => document.getElementById(id).value = '');
     applyFilter();
 }
 
-// ========================================================
-// DOMContentLoaded - 載入使用者列表並設定即時篩選
-// ========================================================
 document.addEventListener('DOMContentLoaded', function() {
-    // ✅ 載入使用者列表到操作人員篩選下拉選單
-    const operatorFilterSelect = document.getElementById('filter_operator');
-    loadUsersToSelect(operatorFilterSelect).catch(err => {
-        console.error('載入使用者列表失敗:', err);
+    ['filter_date', 'filter_item', 'filter_from_box', 'filter_operator'].forEach(id => {
+        document.getElementById(id).addEventListener('input', applyFilter);
     });
-
-    // 即時篩選監聽
-    const inputs = ['filter_date', 'filter_item', 'filter_from_box'];
-    inputs.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('input', applyFilter);
-    });
-
-    const selects = ['filter_type', 'filter_operator'];
-    selects.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('change', applyFilter);
-    });
+    document.getElementById('filter_type').addEventListener('change', applyFilter);
 });
 </script>
 {% endblock %}

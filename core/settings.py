@@ -2,7 +2,12 @@
 Django settings for core project.
 """
 
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# 載入 .env 檔案
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -11,17 +16,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # 安全性設定
 # ==================================================
 
-# TODO: 正式上線前請更換為隨機產生的 secret key
-# 產生方式：python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-SECRET_KEY = 'django-insecure-8$a8gze^bc2!f^018cu1h7)#ag@^eo%12bb^yz@40cbkve19bf'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-only-key')
 
-# 正式上線請改為 False
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    '192.168.1.160'
 ]
 
 
@@ -53,9 +54,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-
-    # 前公司第三方認證 middleware，已移除
-    # 'material_app.middleware.ThirdPartyAuthMiddleware',
 ]
 
 
@@ -89,16 +87,18 @@ TEMPLATES = [
 
 # ==================================================
 # 資料庫
-# 前公司 MySQL 已移除，改用本地 SQLite 開發
 # ==================================================
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME':     os.environ.get('DB_NAME', 'pymaterial'),
+        'USER':     os.environ.get('DB_USER', 'postgres'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+        'HOST':     os.environ.get('DB_HOST', 'localhost'),
+        'PORT':     os.environ.get('DB_PORT', '5432'),
     }
 }
-
 
 
 # ==================================================
@@ -112,19 +112,13 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# 登入/登出導向頁面
-LOGIN_URL = '/admin/login/'          # TODO: 之後自己設計登入頁面再改這裡
+LOGIN_URL = '/material/login/'
 LOGIN_REDIRECT_URL = '/material/'
-LOGOUT_REDIRECT_URL = '/admin/login/'
-
-# 前公司外部認證 API（已移除）
-# EXTERNAL_AUTH_LOGIN_URL = 'http://192.168.0.10:9987/api/auth/login'
-# EXTERNAL_AUTH_API_BASE  = 'http://192.168.0.10:9987/api/users'
-# EXTERNAL_AUTH_TIMEOUT   = 10
+LOGOUT_REDIRECT_URL = '/material/login/'
 
 
 # ==================================================
-# 快取（本地記憶體，開發用）
+# 快取
 # ==================================================
 
 CACHES = {
@@ -183,9 +177,8 @@ STATIC_URL = 'static/'
 # ==================================================
 
 REST_FRAMEWORK = {
-    # 目前全部公開，之後設計權限系統再調整
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',

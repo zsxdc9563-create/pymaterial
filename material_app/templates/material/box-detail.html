@@ -1,0 +1,476 @@
+{% extends 'material/base.html' %}
+
+{% block title %}{{ box.box_id }} - 箱子詳細{% endblock %}
+{% block page_title %}{{ box.box_id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .info-card { background: white; border-radius: 10px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
+    .info-card h5 { font-weight: 600; color: #1e1b4b; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .info-card h5 i { color: #667eea; }
+
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .info-item label { font-size: 12px; color: #6c757d; font-weight: 600; text-transform: uppercase; display: block; margin-bottom: 4px; }
+    .info-item span { font-size: 15px; font-weight: 500; color: #1e1b4b; }
+
+    .badge-type { padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .badge-project   { background: #eef2ff; color: #4338ca; }
+    .badge-personal  { background: #fef3c7; color: #92400e; }
+    .badge-warehouse { background: #d1fae5; color: #065f46; }
+    .badge-spare     { background: #fce7f3; color: #9d174d; }
+    .badge-other     { background: #f3f4f6; color: #374151; }
+
+    .item-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .item-table thead { background: #f8f9fa; }
+    .item-table thead th { padding: 12px 16px; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; }
+    .item-table tbody tr { border-bottom: 1px solid #eee; transition: background 0.15s; }
+    .item-table tbody tr:hover { background: #f9fafb; }
+    .item-table td { padding: 12px 16px; vertical-align: middle; }
+
+    .sn-code { font-weight: 700; color: #1a73e8; }
+    .qty-badge { font-weight: 700; color: #667eea; }
+    .price-val { color: #059669; font-weight: 600; }
+
+    .bom-fulfilled { color: #059669; }
+    .bom-partial   { color: #d97706; }
+    .bom-missing   { color: #dc3545; }
+
+    .log-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .log-table thead { background: #f8f9fa; }
+    .log-table thead th { padding: 10px 14px; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; }
+    .log-table td { padding: 10px 14px; border-bottom: 1px solid #eee; }
+
+    .badge-IN     { background: #d1e7dd; color: #0f5132; padding: 3px 10px; border-radius: 5px; font-size: 12px; font-weight: 600; }
+    .badge-OUT    { background: #f8d7da; color: #842029; padding: 3px 10px; border-radius: 5px; font-size: 12px; font-weight: 600; }
+    .badge-MOVE   { background: #cfe2ff; color: #084298; padding: 3px 10px; border-radius: 5px; font-size: 12px; font-weight: 600; }
+    .badge-ADJUST { background: #fff3cd; color: #664d03; padding: 3px 10px; border-radius: 5px; font-size: 12px; font-weight: 600; }
+    .badge-BORROW { background: #e2d9f3; color: #3d0a91; padding: 3px 10px; border-radius: 5px; font-size: 12px; font-weight: 600; }
+    .badge-RETURN { background: #d1ecf1; color: #0c5460; padding: 3px 10px; border-radius: 5px; font-size: 12px; font-weight: 600; }
+
+    .action-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+
+    .modal-custom { display: none; position: fixed; z-index: 1050; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); overflow-y: auto; }
+    .modal-custom.show { display: block; }
+    .modal-custom-content { background-color: #fff; margin: 3% auto; border-radius: 10px; width: 90%; max-width: 600px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); animation: slideDown 0.3s ease-out; }
+    @keyframes slideDown { from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .modal-custom-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 18px 25px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center; }
+    .modal-custom-header.header-success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+    .modal-custom-header.header-danger  { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); }
+    .modal-custom-header.header-warning { background: linear-gradient(135deg, #fd7e14 0%, #e8590c 100%); }
+    .modal-close { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
+    .modal-custom-body { padding: 25px; }
+    .modal-custom-footer { padding: 15px 25px; background: #f8f9fa; border-top: 1px solid #dee2e6; border-radius: 0 0 10px 10px; display: flex; justify-content: flex-end; gap: 10px; }
+
+    .stock-display { font-size: 2rem; font-weight: 700; color: #198754; text-align: center; padding: 10px; background: #f0fff4; border-radius: 8px; margin-bottom: 16px; }
+    .stock-display.low { color: #dc3545; background: #fff5f5; }
+
+    .progress-bom { height: 8px; border-radius: 4px; background: #e9ecef; margin-top: 6px; }
+    .progress-bom-bar { height: 100%; border-radius: 4px; background: linear-gradient(135deg, #11998e, #38ef7d); transition: width 0.3s; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- 麵包屑 -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'material:box_list' %}">箱子列表</a></li>
+        <li class="breadcrumb-item active">{{ box.box_id }}</li>
+    </ol>
+</nav>
+
+<!-- 箱子基本資訊 -->
+<div class="info-card">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <h5><i class="bi bi-box-seam"></i> 箱子資訊</h5>
+        <div class="d-flex gap-2">
+            {% if not box.is_locked %}
+            <a href="{% url 'material:box_edit' box.box_id %}" class="btn btn-sm btn-outline-warning">
+                <i class="bi bi-pencil"></i> 編輯
+            </a>
+            {% endif %}
+            <form method="POST" action="{% url 'material:box_toggle_lock' %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="box_id" value="{{ box.box_id }}">
+                {% if box.is_locked %}
+                    <input type="hidden" name="action" value="unlock">
+                    <button type="submit" class="btn btn-sm btn-success"><i class="bi bi-unlock"></i> 解鎖</button>
+                {% else %}
+                    <input type="hidden" name="action" value="lock">
+                    <button type="submit" class="btn btn-sm btn-secondary"><i class="bi bi-lock"></i> 鎖定</button>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    <div class="info-grid">
+        <div class="info-item">
+            <label>BoxID</label>
+            <span class="fw-bold text-primary fs-5">{{ box.box_id }}</span>
+        </div>
+        <div class="info-item">
+            <label>類型</label>
+            <span class="badge-type badge-{{ box.box_type|default:'other' }}">{{ box.get_box_type_display|default:"—" }}</span>
+        </div>
+        <div class="info-item">
+            <label>描述</label>
+            <span>{{ box.description|default:"—" }}</span>
+        </div>
+        <div class="info-item">
+            <label>負責人</label>
+            <span>{{ box.owner.username|default:"—" }}</span>
+        </div>
+        <div class="info-item">
+            <label>狀態</label>
+            <span>{{ box.status|default:"—" }}</span>
+        </div>
+        <div class="info-item">
+            <label>建立日期</label>
+            <span>{{ box.created_at|date:"Y-m-d" }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- BOM 狀態（只有專案類型才顯示） -->
+{% if box.box_type == 'project' %}
+<div class="info-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5><i class="bi bi-list-check"></i> BOM 狀態</h5>
+        <a href="{% url 'material:box_bom' box.box_id %}" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-list-check"></i> 管理 BOM
+        </a>
+    </div>
+    {% with bom_items=items|dictsortreversed:"required_qty" %}
+    {% if bom_items %}
+        {% with total=bom_items|length %}
+        <div class="d-flex gap-4 mb-2">
+            <span class="bom-fulfilled"><i class="bi bi-check-circle-fill"></i> 足夠</span>
+            <span class="bom-partial"><i class="bi bi-dash-circle-fill"></i> 不足</span>
+            <span class="bom-missing"><i class="bi bi-x-circle-fill"></i> 缺料</span>
+        </div>
+        {% endwith %}
+    {% else %}
+        <p class="text-muted">尚未設定 BOM 需求</p>
+    {% endif %}
+    {% endwith %}
+</div>
+{% endif %}
+
+<!-- 物料清單 -->
+<div class="info-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5><i class="bi bi-stack"></i> 物料清單（{{ items|length }} 筆）</h5>
+        {% if not box.is_locked %}
+        <button class="btn btn-sm btn-success" onclick="openAddItemModal()">
+            <i class="bi bi-plus-lg"></i> 新增物料
+        </button>
+        {% endif %}
+    </div>
+
+    <div class="table-responsive">
+        <table class="item-table">
+            <thead>
+                <tr>
+                    <th>料號</th>
+                    <th>品名</th>
+                    <th>規格</th>
+                    <th>位置</th>
+                    <th>數量</th>
+                    {% if box.box_type == 'project' %}<th>需求量</th><th>狀態</th>{% endif %}
+                    <th>單價</th>
+                    {% if not box.is_locked %}<th>操作</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td><span class="sn-code">{{ item.sn }}</span></td>
+                    <td>{{ item.item_name }}</td>
+                    <td class="text-muted small">{{ item.spec|default:"—" }}</td>
+                    <td class="text-muted small">{{ item.location|default:"—" }}</td>
+                    <td><span class="qty-badge">{{ item.quantity }}</span></td>
+                    {% if box.box_type == 'project' %}
+                    <td>{{ item.required_qty|default:"—" }}</td>
+                    <td>
+                        {% if item.bom_status == 'fulfilled' %}
+                            <span class="bom-fulfilled"><i class="bi bi-check-circle-fill"></i> 足夠</span>
+                        {% elif item.bom_status == 'partial' %}
+                            <span class="bom-partial"><i class="bi bi-dash-circle-fill"></i> 不足</span>
+                        {% elif item.bom_status == 'missing' %}
+                            <span class="bom-missing"><i class="bi bi-x-circle-fill"></i> 缺料</span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                    <td>{% if item.price %}<span class="price-val">{{ item.price }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                    {% if not box.is_locked %}
+                    <td>
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-success"
+                                onclick="openStockInModal('{{ item.id }}','{{ item.sn|escapejs }}','{{ item.item_name|escapejs }}')">
+                                <i class="bi bi-box-arrow-in-down"></i> 入庫
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger"
+                                onclick="openStockOutModal('{{ item.id }}','{{ item.sn|escapejs }}','{{ item.item_name|escapejs }}',{{ item.quantity }})">
+                                <i class="bi bi-box-arrow-up"></i> 出庫
+                            </button>
+                            <button class="btn btn-sm btn-outline-warning"
+                                onclick="openEditItemModal('{{ item.id }}','{{ item.sn|escapejs }}','{{ item.item_name|escapejs }}','{{ item.spec|default:""|escapejs }}','{{ item.location|default:""|escapejs }}',{{ item.quantity }},{{ item.price|default:'null' }})">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr><td colspan="10" class="text-center py-4 text-muted">此箱子目前沒有物料</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 交易記錄 -->
+<div class="info-card">
+    <h5><i class="bi bi-clock-history"></i> 最近交易記錄</h5>
+    <div class="table-responsive">
+        <table class="log-table">
+            <thead>
+                <tr>
+                    <th>時間</th>
+                    <th>類型</th>
+                    <th>料號</th>
+                    <th>數量</th>
+                    <th>來源</th>
+                    <th>目標</th>
+                    <th>操作人</th>
+                    <th>備註</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td class="text-muted small">{{ log.timestamp|date:"m/d H:i" }}</td>
+                    <td><span class="badge-{{ log.action_type }}">{{ log.get_action_type_display }}</span></td>
+                    <td>{{ log.item.sn|default:"—" }}</td>
+                    <td>{{ log.trans_qty }}</td>
+                    <td class="small">{{ log.from_box_id|default:"—" }}</td>
+                    <td class="small">{{ log.to_box_id|default:"—" }}</td>
+                    <td class="small">{{ log.operator.username|default:"—" }}</td>
+                    <td class="small text-muted">{{ log.remark|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="text-center py-3 text-muted">暫無交易記錄</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 新增物料 Modal -->
+<div id="addItemModal" class="modal-custom">
+    <div class="modal-custom-content">
+        <div class="modal-custom-header header-success">
+            <h2>新增物料</h2>
+            <button class="modal-close" onclick="closeAddItemModal()">&times;</button>
+        </div>
+        <form method="POST" action="{% url 'material:material_add' %}">
+            {% csrf_token %}
+            <input type="hidden" name="box_id" value="{{ box.box_id }}">
+            <div class="modal-custom-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">料號 *</label>
+                        <input type="text" name="sn" class="form-control" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">品名 *</label>
+                        <input type="text" name="item_name" class="form-control" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">規格</label>
+                    <textarea name="spec" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">位置</label>
+                        <input type="text" name="location" class="form-control" placeholder="例：A排1號">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">數量</label>
+                        <input type="number" name="quantity" class="form-control" value="0" min="0">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">單價 (NT$)</label>
+                    <input type="number" name="price" class="form-control" placeholder="選填">
+                </div>
+            </div>
+            <div class="modal-custom-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeAddItemModal()">取消</button>
+                <button type="submit" class="btn btn-success">確認新增</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 入庫 Modal -->
+<div id="stockInModal" class="modal-custom">
+    <div class="modal-custom-content" style="max-width:440px;">
+        <div class="modal-custom-header header-success">
+            <h2><i class="bi bi-box-arrow-in-down me-2"></i>入庫</h2>
+            <button class="modal-close" onclick="closeStockInModal()">&times;</button>
+        </div>
+        <form method="POST" action="{% url 'material:material_in' %}">
+            {% csrf_token %}
+            <input type="hidden" name="item_id" id="in_item_id">
+            <div class="modal-custom-body">
+                <div class="mb-3">
+                    <div class="text-muted small mb-1">料號 / 品名</div>
+                    <div class="fw-bold" id="in_item_info"></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">入庫數量 *</label>
+                    <input type="number" name="quantity" class="form-control form-control-lg text-center fw-bold" min="1" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">備註</label>
+                    <input type="text" name="remark" class="form-control" placeholder="選填">
+                </div>
+            </div>
+            <div class="modal-custom-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeStockInModal()">取消</button>
+                <button type="submit" class="btn btn-success">確認入庫</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 出庫 Modal -->
+<div id="stockOutModal" class="modal-custom">
+    <div class="modal-custom-content" style="max-width:440px;">
+        <div class="modal-custom-header header-danger">
+            <h2><i class="bi bi-box-arrow-up me-2"></i>出庫</h2>
+            <button class="modal-close" onclick="closeStockOutModal()">&times;</button>
+        </div>
+        <form method="POST" action="{% url 'material:material_out' %}">
+            {% csrf_token %}
+            <input type="hidden" name="item_id" id="out_item_id">
+            <input type="hidden" name="from_box" value="{{ box.box_id }}">
+            <div class="modal-custom-body">
+                <div class="mb-3">
+                    <div class="text-muted small mb-1">料號 / 品名</div>
+                    <div class="fw-bold" id="out_item_info"></div>
+                </div>
+                <div class="stock-display" id="out_stock_display">庫存：0</div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">出庫數量 *</label>
+                    <input type="number" name="quantity" id="out_quantity" class="form-control form-control-lg text-center fw-bold" min="1" required>
+                    <div class="form-text">最大：<span id="out_max_qty" class="fw-bold text-danger"></span></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">備註</label>
+                    <input type="text" name="remark" class="form-control" placeholder="選填">
+                </div>
+            </div>
+            <div class="modal-custom-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeStockOutModal()">取消</button>
+                <button type="submit" class="btn btn-danger">確認出庫</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 編輯物料 Modal -->
+<div id="editItemModal" class="modal-custom">
+    <div class="modal-custom-content">
+        <div class="modal-custom-header header-warning">
+            <h2>編輯物料</h2>
+            <button class="modal-close" onclick="closeEditItemModal()">&times;</button>
+        </div>
+        <form method="POST" id="editItemForm">
+            {% csrf_token %}
+            <div class="modal-custom-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>料號（不可修改）</label>
+                        <input type="text" id="edit_sn_display" class="form-control" disabled>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>品名</label>
+                        <input type="text" id="edit_item_name" name="item_name" class="form-control" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label>規格</label>
+                    <input type="text" id="edit_spec" name="spec" class="form-control">
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>位置</label>
+                        <input type="text" id="edit_location" name="location" class="form-control">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>數量</label>
+                        <input type="number" id="edit_quantity" name="quantity" class="form-control" min="0">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label>單價 (NT$)</label>
+                    <input type="number" id="edit_price" name="price" class="form-control">
+                </div>
+            </div>
+            <div class="modal-custom-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeEditItemModal()">取消</button>
+                <button type="submit" class="btn btn-warning text-white">儲存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function openAddItemModal()  { document.getElementById('addItemModal').classList.add('show'); }
+    function closeAddItemModal() { document.getElementById('addItemModal').classList.remove('show'); }
+
+    function openStockInModal(itemId, sn, name) {
+        document.getElementById('in_item_id').value    = itemId;
+        document.getElementById('in_item_info').innerText = sn + ' — ' + name;
+        document.getElementById('stockInModal').classList.add('show');
+    }
+    function closeStockInModal() { document.getElementById('stockInModal').classList.remove('show'); }
+
+    function openStockOutModal(itemId, sn, name, qty) {
+        document.getElementById('out_item_id').value      = itemId;
+        document.getElementById('out_item_info').innerText = sn + ' — ' + name;
+        document.getElementById('out_quantity').max       = qty;
+        document.getElementById('out_quantity').value     = 1;
+        document.getElementById('out_max_qty').innerText  = qty;
+        const stockEl = document.getElementById('out_stock_display');
+        stockEl.innerText = '庫存：' + qty;
+        stockEl.className = 'stock-display' + (qty <= 5 ? ' low' : '');
+        document.getElementById('stockOutModal').classList.add('show');
+    }
+    function closeStockOutModal() { document.getElementById('stockOutModal').classList.remove('show'); }
+
+    function openEditItemModal(itemId, sn, name, spec, loc, qty, price) {
+        document.getElementById('edit_sn_display').value  = sn;
+        document.getElementById('edit_item_name').value   = name;
+        document.getElementById('edit_spec').value        = spec;
+        document.getElementById('edit_location').value    = loc;
+        document.getElementById('edit_quantity').value    = qty;
+        document.getElementById('edit_price').value       = price === 'null' ? '' : price;
+        document.getElementById('editItemForm').action =
+            "{% url 'material:material_edit' 0 %}".replace('0', itemId);
+        document.getElementById('editItemModal').classList.add('show');
+    }
+    function closeEditItemModal() { document.getElementById('editItemModal').classList.remove('show'); }
+
+    window.onclick = function(e) {
+        if (e.target.className === 'modal-custom show') e.target.classList.remove('show');
+    }
+</script>
+{% endblock %}

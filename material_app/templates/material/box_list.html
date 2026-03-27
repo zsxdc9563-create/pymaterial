@@ -1,3 +1,4 @@
+
 {% extends 'material/base.html' %}
 {% load static %}
 
@@ -20,15 +21,12 @@
 
 {% block content %}
 
-<!-- 頂部按鈕（暫時不做權限判斷）-->
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <!-- 左邊：新增容器 -->
     <div>
         <button class="btn btn-primary" onclick="openAddModal()">
             <i class="bi bi-plus-lg me-1"></i> 新增容器
         </button>
     </div>
-    <!-- 右邊：Excel 功能 -->
     <div class="d-flex gap-2 flex-wrap">
         <a href="{% url 'material:box_export_excel' %}" class="btn btn-success">
             <i class="bi bi-file-earmark-excel me-1"></i> 匯出 Excel
@@ -41,6 +39,38 @@
         </a>
     </div>
 </div>
+
+<!-- Tab 切換 -->
+<ul class="nav nav-pills mb-3" id="boxTypeTabs">
+    <li class="nav-item">
+        <button class="nav-link active" onclick="filterByType('')" data-type="">全部</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" onclick="filterByType('project')" data-type="project">
+            <i class="bi bi-kanban"></i> 專案
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" onclick="filterByType('personal')" data-type="personal">
+            <i class="bi bi-person"></i> 個人
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" onclick="filterByType('warehouse')" data-type="warehouse">
+            <i class="bi bi-building"></i> 倉庫
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" onclick="filterByType('spare')" data-type="spare">
+            <i class="bi bi-tools"></i> 備品倉
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" onclick="filterByType('other')" data-type="other">
+            <i class="bi bi-three-dots"></i> 其他
+        </button>
+    </li>
+</ul>
 
 <!-- 篩選面板 -->
 <div class="filter-panel">
@@ -55,12 +85,15 @@
                 <input type="text" id="filter_boxid" class="form-control form-control-sm" placeholder="搜尋編號...">
             </div>
             <div class="col-md-3">
-                <label class="form-label small fw-bold">類別</label>
+                <label class="form-label small fw-bold">類型</label>
                 <select id="filter_category" class="form-select form-select-sm">
                     <option value="">-- 全部 --</option>
-                    <option value="專案">專案</option>
-                    <option value="個人">個人</option>
-                    <option value="倉庫">倉庫</option>
+                    <option value="project">專案</option>
+                    <option value="personal">個人</option>
+                    <option value="warehouse">倉庫</option>
+                    <option value="spare">備品</option>
+                    <option value="test">測試</option>
+                    <option value="other">其他</option>
                 </select>
             </div>
             <div class="col-md-3">
@@ -88,7 +121,7 @@
             <thead class="table-light">
                 <tr>
                     <th class="ps-4">容器編號</th>
-                    <th>類別</th>
+                    <th>類型</th>
                     <th>描述</th>
                     <th>狀態</th>
                     <th>建立日期</th>
@@ -98,58 +131,58 @@
             <tbody>
                 {% for box in boxes %}
                 <tr class="box-row"
-                    data-boxid="{{ box.BoxID }}"
-                    data-category="{{ box.Category|default:'' }}"
-                    data-status="{{ box.Status|default:'' }}"
-                    {% if box.Locked %}style="background:#fff5f5;"{% endif %}>
+                    data-boxid="{{ box.box_id }}"
+                    data-category="{{ box.box_type|default:'' }}"
+                    data-status="{{ box.status|default:'' }}"
+                    {% if box.is_locked %}style="background:#fff5f5;"{% endif %}>
                     <td class="ps-4">
-                        <span class="boxid-text">{{ box.BoxID }}</span>
-                        {% if box.Locked %}<i class="bi bi-lock-fill text-danger ms-1"></i>{% endif %}
+                        <a href="{% url 'material:box_detail' box.box_id %}" class="boxid-text" style="text-decoration:none;">{{ box.box_id }}</a>
+                        {% if box.is_locked %}<i class="bi bi-lock-fill text-danger ms-1"></i>{% endif %}
                     </td>
-                    <td><span class="badge bg-light text-dark border">{{ box.Category|default:"—" }}</span></td>
-                    <td class="text-muted small">{{ box.Description|default:"—" }}</td>
+                    <td><span class="badge bg-light text-dark border">{{ box.get_box_type_display|default:"—" }}</span></td>
+                    <td class="text-muted small">{{ box.description|default:"—" }}</td>
                     <td>
-                        {% if box.Status == '使用中' %}
-                            <span class="text-success">● {{ box.Status }}</span>
-                        {% elif box.Status == '空閒' %}
-                            <span class="text-primary">○ {{ box.Status }}</span>
+                        {% if box.status == '使用中' %}
+                            <span class="text-success">● {{ box.status }}</span>
+                        {% elif box.status == '空閒' %}
+                            <span class="text-primary">○ {{ box.status }}</span>
                         {% else %}
-                            <span class="text-muted">{{ box.Status|default:"—" }}</span>
+                            <span class="text-muted">{{ box.status|default:"—" }}</span>
                         {% endif %}
                     </td>
-                    <td class="small text-muted">{{ box.CreateDate|date:"Y-m-d" }}</td>
+                    <td class="small text-muted">{{ box.created_at|date:"Y-m-d" }}</td>
                     <td class="pe-4">
                         <div class="action-group justify-content-end">
                             <!-- 詳細 -->
                             <button class="btn btn-sm btn-outline-info"
-                                onclick="showBoxDetails('{{ box.BoxID }}','{{ box.Category|default:'' }}','{{ box.Description|default:''|escapejs }}','{{ box.Status|default:'' }}','{{ box.Owner|default:'' }}','{{ box.CreateDate|date:'Y-m-d' }}','{{ box.Locked }}')">
+                                onclick="showBoxDetails('{{ box.box_id }}','{{ box.box_type|default:'' }}','{{ box.description|default:''|escapejs }}','{{ box.status|default:'' }}','{{ box.owner.username|default:'' }}','{{ box.created_at|date:'Y-m-d' }}','{{ box.is_locked }}')">
                                 詳細
                             </button>
-                            {% if not box.Locked %}
+                            {% if not box.is_locked %}
                             <!-- 編輯 -->
                             <button class="btn btn-sm btn-outline-warning"
-                                onclick="openEditModal('{{ box.BoxID }}','{{ box.Category|default:'' }}','{{ box.Description|default:''|escapejs }}','{{ box.Owner|default:'' }}','{{ box.Status|default:'' }}')">
+                                onclick="openEditModal('{{ box.box_id }}','{{ box.box_type|default:'' }}','{{ box.description|default:''|escapejs }}','{{ box.owner.username|default:'' }}','{{ box.status|default:'' }}')">
                                 編輯
                             </button>
                             <!-- 入庫 -->
-                            <a href="{% url 'material:material_list' %}?default_box={{ box.BoxID }}" class="btn btn-sm btn-outline-primary">入庫</a>
+                            <a href="{% url 'material:material_list' %}?default_box={{ box.box_id }}" class="btn btn-sm btn-outline-primary">入庫</a>
                             <!-- BOM（只有專案類型才顯示）-->
-                            {% if box.Category == '專案' %}
-                            <a href="{% url 'material:box_bom' box.BoxID %}" class="btn btn-sm btn-outline-success">
+                            {% if box.box_type == 'project' %}
+                            <a href="{% url 'material:box_bom' box.box_id %}" class="btn btn-sm btn-outline-success">
                                 <i class="bi bi-list-check"></i> BOM
                             </a>
                             {% endif %}
                             <!-- 刪除 -->
                             <button class="btn btn-sm btn-outline-danger"
-                                onclick="openDeleteModal('{{ box.BoxID }}')">
+                                onclick="openDeleteModal('{{ box.box_id }}')">
                                 刪除
                             </button>
                             {% endif %}
                             <!-- 鎖定 / 解鎖 -->
                             <form method="POST" action="{% url 'material:box_toggle_lock' %}">
                                 {% csrf_token %}
-                                <input type="hidden" name="BoxID" value="{{ box.BoxID }}">
-                                {% if box.Locked %}
+                                <input type="hidden" name="box_id" value="{{ box.box_id }}">
+                                {% if box.is_locked %}
                                     <input type="hidden" name="action" value="unlock">
                                     <button type="submit" class="btn btn-sm btn-success">解鎖</button>
                                 {% else %}
@@ -170,7 +203,7 @@
     </div>
 </div>
 
-<!-- ════════ 新增 Modal ════════ -->
+<!-- 新增 Modal -->
 <div class="modal fade" id="addBoxModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -183,24 +216,25 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label fw-bold">容器編號 <span class="required">*</span></label>
-                        <input type="text" class="form-control" name="BoxID" required placeholder="例如：BOX-2024-001">
+                        <input type="text" class="form-control" name="box_id" required placeholder="例如：BOX-2024-001">
                         <small class="help-text">建議使用統一格式編碼</small>
                     </div>
+
                     <div class="row mb-3">
                         <div class="col">
-                            <label class="form-label fw-bold">類別</label>
-                            <select class="form-select" name="Category">
-                                <option value="專案">專案</option>
-                                <option value="個人">個人</option>
-                                <option value="倉庫" selected>倉庫</option>
-                                <option value="備品">備品</option>
-                                <option value="測試">測試</option>
-                                <option value="其他">其他</option>
+                            <label class="form-label fw-bold">類型</label>
+                            <select class="form-select" name="box_type">
+                                <option value="project">專案</option>
+                                <option value="personal">個人</option>
+                                <option value="warehouse" selected>倉庫</option>
+                                <option value="spare">備品</option>
+                                <option value="test">測試</option>
+                                <option value="other">其他</option>
                             </select>
                         </div>
                         <div class="col">
                             <label class="form-label fw-bold">初始狀態</label>
-                            <select class="form-select" name="Status">
+                            <select class="form-select" name="status">
                                 <option value="使用中">使用中</option>
                                 <option value="空閒" selected>空閒</option>
                                 <option value="結案">結案</option>
@@ -209,7 +243,11 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold">描述</label>
-                        <textarea class="form-control" name="Description" rows="2"></textarea>
+                        <textarea class="form-control" name="description" rows="2"></textarea>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">負責人</label>
+                            <input type="text" class="form-control" name="owner" placeholder="輸入負責人姓名" value="{{ current_user_name }}">
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -221,7 +259,7 @@
     </div>
 </div>
 
-<!-- ════════ 編輯 Modal ════════ -->
+<!-- 編輯 Modal -->
 <div class="modal fade" id="editBoxModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -238,32 +276,30 @@
                     </div>
                     <div class="row mb-3">
                         <div class="col">
-                            <label class="form-label fw-bold">類別</label>
-                            <select class="form-select" name="Category" id="edit_Category">
-                                <option value="專案">專案</option>
-                                <option value="個人">個人</option>
-                                <option value="倉庫">倉庫</option>
-                                <option value="備品">備品</option>
-                                <option value="測試">測試</option>
-                                <option value="其他">其他</option>
+                            <label class="form-label fw-bold">類型</label>
+                            <select class="form-select" name="box_type" id="edit_box_type">
+                                <option value="project">專案</option>
+                                <option value="personal">個人</option>
+                                <option value="warehouse">倉庫</option>
+                                <option value="spare">備品</option>
+                                <option value="test">測試</option>
+                                <option value="other">其他</option>
                             </select>
                         </div>
                         <div class="col">
                             <label class="form-label fw-bold">狀態</label>
-                            <select class="form-select" name="Status" id="edit_Status">
+                            <select class="form-select" name="status" id="edit_Status">
                                 <option value="使用中">使用中</option>
                                 <option value="空閒">空閒</option>
                                 <option value="結案">結案</option>
+
                             </select>
                         </div>
                     </div>
+                    
                     <div class="mb-3">
                         <label class="form-label fw-bold">描述</label>
-                        <textarea class="form-control" name="Description" id="edit_Description" rows="2"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">負責人</label>
-                        <input type="text" class="form-control" name="Owner" id="edit_Owner">
+                        <textarea class="form-control" name="description" id="edit_Description" rows="2"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -275,7 +311,7 @@
     </div>
 </div>
 
-<!-- ════════ 刪除 Modal ════════ -->
+<!-- 刪除 Modal -->
 <div class="modal fade" id="deleteBoxModal" tabindex="-1">
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
@@ -300,7 +336,7 @@
     </div>
 </div>
 
-<!-- ════════ 詳細 Modal ════════ -->
+<!-- 詳細 Modal -->
 <div class="modal fade" id="detailBoxModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -311,7 +347,7 @@
             <div class="modal-body">
                 <table class="table table-borderless mb-0">
                     <tr><th class="text-muted" style="width:35%">容器編號</th><td id="detail_BoxID" class="fw-bold text-primary"></td></tr>
-                    <tr><th class="text-muted">類別</th><td id="detail_Category"></td></tr>
+                    <tr><th class="text-muted">類型</th><td id="detail_Category"></td></tr>
                     <tr><th class="text-muted">描述</th><td id="detail_Description"></td></tr>
                     <tr><th class="text-muted">狀態</th><td id="detail_Status"></td></tr>
                     <tr><th class="text-muted">負責人</th><td id="detail_Owner"></td></tr>
@@ -326,7 +362,7 @@
     </div>
 </div>
 
-<!-- ════════ 匯入 Modal ════════ -->
+<!-- 匯入 Modal -->
 <div class="modal fade" id="importExcelModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -357,6 +393,22 @@
 
 {% block extra_js %}
 <script>
+    function filterByType(type) {
+    // 更新 Tab 樣式
+    document.querySelectorAll('#boxTypeTabs .nav-link').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.type === type);
+    });
+    // 套用篩選
+    document.getElementById('filter_category').value = type;
+    applyBoxFilter();
+}
+
+// 頁面載入時讀取 URL 的 tab 參數
+    document.addEventListener('DOMContentLoaded', function() {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab') || '';
+        filterByType(tab);
+    });
     function toggleFilterPanel() {
         const body  = document.getElementById('filterPanelBody');
         const arrow = document.getElementById('filterToggleArrow');
@@ -390,11 +442,10 @@
         new bootstrap.Modal(document.getElementById('addBoxModal')).show();
     }
 
-    function openEditModal(boxId, category, description, owner, status) {
+    function openEditModal(boxId, boxType, description, owner, status) {
         document.getElementById('edit_BoxID_display').value = boxId;
-        document.getElementById('edit_Category').value      = category;
+        document.getElementById('edit_box_type').value      = boxType;
         document.getElementById('edit_Description').value   = description;
-        document.getElementById('edit_Owner').value         = owner;
         document.getElementById('edit_Status').value        = status;
         document.getElementById('editBoxForm').action =
             "{% url 'material:box_edit' 'PLACEHOLDER' %}".replace('PLACEHOLDER', boxId);
@@ -408,14 +459,14 @@
         new bootstrap.Modal(document.getElementById('deleteBoxModal')).show();
     }
 
-    function showBoxDetails(boxId, category, description, status, owner, createDate, locked) {
-        document.getElementById('detail_BoxID').innerText      = boxId;
-        document.getElementById('detail_Category').innerText   = category    || '—';
+    function showBoxDetails(boxId, boxType, description, status, owner, createDate, locked) {
+        document.getElementById('detail_BoxID').innerText       = boxId;
+        document.getElementById('detail_Category').innerText    = boxType    || '—';
         document.getElementById('detail_Description').innerText = description || '—';
-        document.getElementById('detail_Status').innerText     = status      || '—';
-        document.getElementById('detail_Owner').innerText      = owner       || '—';
-        document.getElementById('detail_CreateDate').innerText = createDate  || '—';
-        document.getElementById('detail_Locked').innerHTML     =
+        document.getElementById('detail_Status').innerText      = status     || '—';
+        document.getElementById('detail_Owner').innerText       = owner      || '—';
+        document.getElementById('detail_CreateDate').innerText  = createDate || '—';
+        document.getElementById('detail_Locked').innerHTML =
             locked === 'True'
             ? '<span class="text-danger"><i class="bi bi-lock-fill"></i> 已鎖定</span>'
             : '<span class="text-success"><i class="bi bi-unlock-fill"></i> 未鎖定</span>';

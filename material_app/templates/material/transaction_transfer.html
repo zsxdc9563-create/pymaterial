@@ -5,7 +5,6 @@
 
 {% block extra_css %}
 <style>
-    /* ===== Toast 通知 ===== */
     .toast-container {
         position: fixed; top: 24px; right: 24px; z-index: 9999;
         display: flex; flex-direction: column; gap: 10px; pointer-events: none;
@@ -17,8 +16,7 @@
         box-shadow: 0 4px 12px rgba(0,0,0,0.18);
         display: flex; align-items: center; gap: 10px;
         animation: toastIn 0.3s ease-out;
-        pointer-events: auto;
-        min-width: 260px;
+        pointer-events: auto; min-width: 260px;
     }
     .toast-item.error { background: #dc3545; }
     .toast-item i { font-size: 1.1rem; flex-shrink: 0; }
@@ -32,30 +30,24 @@
     }
     .toast-item.leaving { animation: toastOut 0.3s ease-in forwards; }
 
-    /* ===== 表單卡片 ===== */
     .form-card {
         background: white; border-radius: 10px; padding: 30px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px;
     }
     .form-card h5 { color: #1e1b4b; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
     .form-card h5 i { color: #667eea; }
-
     .form-label { font-size: 13px; font-weight: 600; color: #495057; margin-bottom: 6px; }
     .form-label .required { color: #dc3545; }
-    
     .form-control:read-only { background-color: #f8f9fa !important; cursor: not-allowed; }
 
-    /* ===== 最近記錄表格 ===== */
     .recent-transfers-card { background: white; border-radius: 10px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
     .table-recent { width: 100%; border-collapse: collapse; font-size: 13px; }
     .table-recent thead { background: #f8f9fa; }
     .table-recent thead th { padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #dee2e6; }
     .table-recent td { padding: 12px; border-bottom: 1px solid #eee; }
-
     .badge-from { background: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-weight: 600; }
-    .badge-to { background: #d1e7dd; color: #0f5132; padding: 4px 8px; border-radius: 4px; font-weight: 600; }
-    
-    .info-text { font-size: 12px; margin-top: 5px; min-height: 18px; }
+    .badge-to   { background: #d1e7dd; color: #0f5132; padding: 4px 8px; border-radius: 4px; font-weight: 600; }
+    .info-text  { font-size: 12px; margin-top: 5px; min-height: 18px; }
     .text-stock { color: #0d6efd; font-weight: 600; }
 </style>
 {% endblock %}
@@ -78,8 +70,9 @@
                     <select class="form-select" id="from_box" name="from_box" required>
                         <option value="">-- 請選擇來源容器 --</option>
                         {% for box in boxes %}
-                        <option value="{{ box.BoxID }}" {% if box.BoxID == pre_source_box %}selected{% endif %}>
-                            {{ box.BoxID }} {% if box.Description %}- {{ box.Description }}{% endif %}
+                        {# 舊版：box.BoxID、box.Description → 新版：box.box_id、box.description #}
+                        <option value="{{ box.box_id }}" {% if box.box_id == pre_source_box %}selected{% endif %}>
+                            {{ box.box_id }}{% if box.description %} - {{ box.description }}{% endif %}
                         </option>
                         {% endfor %}
                     </select>
@@ -90,7 +83,7 @@
                     <select class="form-select" id="to_box" name="to_box" required>
                         <option value="">-- 請選擇目標容器 --</option>
                         {% for box in boxes %}
-                        <option value="{{ box.BoxID }}">{{ box.BoxID }}</option>
+                        <option value="{{ box.box_id }}">{{ box.box_id }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -115,10 +108,9 @@
             <div class="row mb-4">
                 <div class="col-md-6">
                     <label class="form-label">操作人員</label>
-                    <input type="text" class="form-control" value="{{ current_user_name }} ({{ current_user_id }})" readonly>
-                    <input type="hidden" name="operator_id" value="{{ current_user_id }}">
+                    {# 舊版：current_user_id 是字串 → 新版顯示 username #}
+                    <input type="text" class="form-control" value="{{ current_user_name }}" readonly>
                 </div>
-
                 <div class="col-md-6">
                     <label class="form-label">備註</label>
                     <input type="text" class="form-control" name="remark" placeholder="選填">
@@ -142,12 +134,8 @@
             <table class="table-recent">
                 <thead>
                     <tr>
-                        <th>時間</th>
-                        <th>物品</th>
-                        <th>數量</th>
-                        <th>來源</th>
-                        <th>目標</th>
-                        <th>操作人</th>
+                        <th>時間</th><th>物品</th><th>數量</th>
+                        <th>來源</th><th>目標</th><th>操作人</th>
                     </tr>
                 </thead>
                 <tbody id="recent_transfers">
@@ -174,24 +162,20 @@ function showToast(message, isError = false) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    const fromBox = document.getElementById('from_box');
-    const toBox = document.getElementById('to_box');
-    const itemSelect = document.getElementById('item');
-    const qtyInput = document.getElementById('quantity');
-    const itemInfo = document.getElementById('item_info');
-    const stockInfo = document.getElementById('stock_info');
+    const fromBox     = document.getElementById('from_box');
+    const toBox       = document.getElementById('to_box');
+    const itemSelect  = document.getElementById('item');
+    const qtyInput    = document.getElementById('quantity');
+    const itemInfo    = document.getElementById('item_info');
+    const stockInfo   = document.getElementById('stock_info');
     const transferForm = document.getElementById('transferForm');
 
     const preSN = "{{ pre_sn|default:'' }}";
     const ITEMS_BY_BOX = JSON.parse(document.getElementById('transfer-items-by-box').textContent);
 
-    // 1. 來源容器變更（資料由後端嵌入，不再呼叫 /api/）
     fromBox.addEventListener('change', function() {
         const boxId = this.value;
-        if (!boxId) {
-            resetItemField("-- 請先選擇來源容器 --");
-            return;
-        }
+        if (!boxId) { resetItemField("-- 請先選擇來源容器 --"); return; }
 
         if (boxId === toBox.value) {
             showToast("來源與目標容器不可相同", true);
@@ -204,11 +188,12 @@ document.addEventListener('DOMContentLoaded', function() {
             itemSelect.innerHTML = '<option value="">-- 請選擇物品 --</option>';
             items.forEach(item => {
                 const opt = document.createElement('option');
+                // 舊版：item.item_id 是 sn 字串 → 新版：item.item_id 是 pk（數字）
                 opt.value = item.item_id;
                 opt.textContent = `${item.item_name} (庫存: ${item.quantity})`;
-                opt.dataset.qty = item.quantity;
+                opt.dataset.qty  = item.quantity;
                 opt.dataset.spec = item.spec || '無規格';
-                if (preSN && item.item_id === preSN) opt.selected = true;
+                if (preSN && String(item.item_id) === preSN) opt.selected = true;
                 itemSelect.appendChild(opt);
             });
             itemSelect.disabled = false;
@@ -218,51 +203,44 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // 2. 物品選擇變更
     itemSelect.addEventListener('change', function() {
         const opt = this.options[this.selectedIndex];
         if (!this.value) {
             qtyInput.disabled = true;
-            itemInfo.textContent = "";
+            itemInfo.textContent  = "";
             stockInfo.textContent = "";
             return;
         }
-        itemInfo.textContent = `規格: ${opt.dataset.spec}`;
+        itemInfo.textContent  = `規格: ${opt.dataset.spec}`;
         stockInfo.textContent = `目前庫存: ${opt.dataset.qty}`;
-        qtyInput.max = opt.dataset.qty;
+        qtyInput.max     = opt.dataset.qty;
         qtyInput.disabled = false;
         if (!qtyInput.value) qtyInput.value = 1;
     });
 
     function resetItemField(msg) {
-        itemSelect.innerHTML = `<option value="">${msg}</option>`;
-        itemSelect.disabled = true;
-        qtyInput.disabled = true;
-        qtyInput.value = "";
-        itemInfo.textContent = "";
+        itemSelect.innerHTML  = `<option value="">${msg}</option>`;
+        itemSelect.disabled   = true;
+        qtyInput.disabled     = true;
+        qtyInput.value        = "";
+        itemInfo.textContent  = "";
         stockInfo.textContent = "";
     }
 
-    // 3. 表單提交驗證
     transferForm.addEventListener('submit', function(e) {
         const btn = document.getElementById('submitBtn');
-        const q = parseInt(qtyInput.value);
+        const q   = parseInt(qtyInput.value);
         const max = parseInt(qtyInput.max);
-
         if (q > max) {
             e.preventDefault();
             showToast(`數量不可超過庫存 (${max})`, true);
             return;
         }
-        
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 處理中...';
+        btn.disabled   = true;
+        btn.innerHTML  = '<span class="spinner-border spinner-border-sm"></span> 處理中...';
     });
 
-    // 4. 載入最近記錄
     loadRecent();
-
-    // 初始觸發
     if (fromBox.value) fromBox.dispatchEvent(new Event('change'));
 });
 
@@ -270,12 +248,10 @@ function loadRecent() {
     try {
         const transfers = JSON.parse(document.getElementById('transfer-recent-transfers').textContent);
         const tbody = document.getElementById('recent_transfers');
-
         if (!transfers || transfers.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">暫無調撥紀錄</td></tr>';
             return;
         }
-
         tbody.innerHTML = transfers.map(t => `
             <tr>
                 <td class="text-muted">${t.timestamp}</td>
@@ -287,7 +263,8 @@ function loadRecent() {
             </tr>
         `).join('');
     } catch (e) {
-        document.getElementById('recent_transfers').innerHTML = '<tr><td colspan="6" class="text-center text-danger">紀錄載入失敗</td></tr>';
+        document.getElementById('recent_transfers').innerHTML =
+            '<tr><td colspan="6" class="text-center text-danger">紀錄載入失敗</td></tr>';
     }
 }
 </script>

@@ -12,11 +12,10 @@
     .filter-panel-header { padding: 12px 20px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; cursor: pointer; display: flex; justify-content: space-between; }
     .filter-panel-body { padding: 20px; }
     .filter-panel-body.hidden { display: none; }
-    .boxid-text { font-weight: 700; color: #4338ca; }
+    .boxid-text { font-weight: 700; color: #4338ca; text-decoration: none; }
+    .boxid-text:hover { text-decoration: underline; }
     .required { color: #dc3545; margin-left: 3px; }
     .help-text { font-size: 0.8rem; color: #6b7280; display: block; margin-top: 4px; }
-
-    /* BOM 進度條 */
     .bom-progress { height: 6px; background: #e9ecef; border-radius: 3px; overflow: hidden; margin-top: 4px; }
     .bom-progress-bar { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #667eea, #764ba2); transition: width 0.4s; }
     .bom-label { font-size: 11px; color: #6c757d; margin-top: 2px; }
@@ -25,13 +24,10 @@
 
 {% block content %}
 
-<!-- 頂部按鈕 -->
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <div class="d-flex gap-2 flex-wrap">
-        <button class="btn btn-primary" onclick="openAddModal()">
-            <i class="bi bi-plus-lg me-1"></i> 新增專案
-        </button>
-    </div>
+    <button class="btn btn-primary" onclick="openAddModal()">
+        <i class="bi bi-plus-lg me-1"></i> 新增專案
+    </button>
 </div>
 
 <!-- 篩選面板 -->
@@ -82,22 +78,23 @@
             <tbody>
                 {% for box in boxes %}
                 <tr class="box-row"
-                    data-boxid="{{ box.BoxID }}"
-                    data-status="{{ box.Status|default:'' }}"
-                    {% if box.Locked %}style="background:#fff5f5;"{% endif %}>
+                    data-boxid="{{ box.box_id }}"
+                    data-status="{{ box.status|default:'' }}"
+                    {% if box.is_locked %}style="background:#fff5f5;"{% endif %}>
                     <td class="ps-4">
-                        <span class="boxid-text">{{ box.BoxID }}</span>
-                        {% if box.Locked %}<i class="bi bi-lock-fill text-danger ms-1"></i>{% endif %}
+                        {# box_id 改成可點擊連結，進入箱子詳細頁 #}
+                        <a href="{% url 'material:box_detail' box.box_id %}" class="boxid-text">{{ box.box_id }}</a>
+                        {% if box.is_locked %}<i class="bi bi-lock-fill text-danger ms-1"></i>{% endif %}
                     </td>
-                    <td class="text-muted small">{{ box.Description|default:"—" }}</td>
-                    <td class="text-muted small">{{ box.Owner|default:"未指定" }}</td>
+                    <td class="text-muted small">{{ box.description|default:"—" }}</td>
+                    <td class="text-muted small">{{ box.owner.username|default:"未指定" }}</td>
                     <td>
-                        {% if box.Status == '使用中' %}
-                            <span class="text-success">● {{ box.Status }}</span>
-                        {% elif box.Status == '空閒' %}
-                            <span class="text-primary">○ {{ box.Status }}</span>
+                        {% if box.status == '使用中' %}
+                            <span class="text-success">● {{ box.status }}</span>
+                        {% elif box.status == '空閒' %}
+                            <span class="text-primary">○ {{ box.status }}</span>
                         {% else %}
-                            <span class="text-muted">{{ box.Status|default:"—" }}</span>
+                            <span class="text-muted">{{ box.status|default:"—" }}</span>
                         {% endif %}
                     </td>
                     <td style="min-width:120px;">
@@ -112,35 +109,30 @@
                         {% endif %}
                         {% endwith %}
                     </td>
-                    <td class="small text-muted">{{ box.CreateDate|date:"Y-m-d" }}</td>
+                    <td class="small text-muted">{{ box.created_at|date:"Y-m-d" }}</td>
                     <td class="pe-4">
                         <div class="action-group justify-content-end">
-                            <!-- 詳細 -->
                             <button class="btn btn-sm btn-outline-info"
-                                onclick="showDetail('{{ box.BoxID }}','{{ box.Description|default:''|escapejs }}','{{ box.Status|default:'' }}','{{ box.Owner|default:'' }}','{{ box.CreateDate|date:'Y-m-d' }}','{{ box.Locked }}')">
+                                onclick="showDetail('{{ box.box_id }}','{{ box.description|default:''|escapejs }}','{{ box.status|default:'' }}','{{ box.owner.username|default:'' }}','{{ box.created_at|date:'Y-m-d' }}','{{ box.is_locked }}')">
                                 詳細
                             </button>
-                            {% if not box.Locked %}
-                            <!-- 編輯 -->
+                            {% if not box.is_locked %}
                             <button class="btn btn-sm btn-outline-warning"
-                                onclick="openEditModal('{{ box.BoxID }}','{{ box.Description|default:''|escapejs }}','{{ box.Owner|default:'' }}','{{ box.Status|default:'' }}')">
+                                onclick="openEditModal('{{ box.box_id }}','{{ box.description|default:''|escapejs }}','{{ box.owner.username|default:'' }}','{{ box.status|default:'' }}')">
                                 編輯
                             </button>
-                            <!-- BOM 管理 -->
-                            <a href="{% url 'material:box_bom' box.BoxID %}" class="btn btn-sm btn-success">
+                            <a href="{% url 'material:box_bom' box.box_id %}" class="btn btn-sm btn-success">
                                 <i class="bi bi-list-check"></i> BOM
                             </a>
-                            <!-- 刪除 -->
                             <button class="btn btn-sm btn-outline-danger"
-                                onclick="openDeleteModal('{{ box.BoxID }}')">
+                                onclick="openDeleteModal('{{ box.box_id }}')">
                                 刪除
                             </button>
                             {% endif %}
-                            <!-- 鎖定 / 解鎖 -->
                             <form method="POST" action="{% url 'material:box_toggle_lock' %}">
                                 {% csrf_token %}
-                                <input type="hidden" name="BoxID" value="{{ box.BoxID }}">
-                                {% if box.Locked %}
+                                <input type="hidden" name="box_id" value="{{ box.box_id }}">
+                                {% if box.is_locked %}
                                     <input type="hidden" name="action" value="unlock">
                                     <button type="submit" class="btn btn-sm btn-success">解鎖</button>
                                 {% else %}
@@ -164,8 +156,7 @@
     </div>
 </div>
 
-
-<!-- ════════ 新增專案 Modal ════════ -->
+<!-- 新增專案 Modal -->
 <div class="modal fade" id="addProjectModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -175,20 +166,20 @@
             </div>
             <form method="POST" action="{% url 'material:box_add' %}">
                 {% csrf_token %}
-                <input type="hidden" name="Category" value="專案">
+                <input type="hidden" name="box_type" value="project">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label fw-bold">專案編號 <span class="required">*</span></label>
-                        <input type="text" class="form-control" name="BoxID" required placeholder="例如：PROJ-2024-001">
+                        <input type="text" class="form-control" name="box_id" required placeholder="例如：PROJ-2024-001">
                         <small class="help-text">建議使用統一格式編碼</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold">專案描述</label>
-                        <textarea class="form-control" name="Description" rows="2" placeholder="簡述此專案用途"></textarea>
+                        <textarea class="form-control" name="description" rows="2" placeholder="簡述此專案用途"></textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold">初始狀態</label>
-                        <select class="form-select" name="Status">
+                        <select class="form-select" name="status">
                             <option value="使用中">使用中</option>
                             <option value="空閒" selected>空閒</option>
                             <option value="結案">結案</option>
@@ -204,8 +195,7 @@
     </div>
 </div>
 
-
-<!-- ════════ 編輯 Modal ════════ -->
+<!-- 編輯 Modal -->
 <div class="modal fade" id="editProjectModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -222,7 +212,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold">狀態</label>
-                        <select class="form-select" name="Status" id="edit_Status">
+                        <select class="form-select" name="status" id="edit_Status">
                             <option value="使用中">使用中</option>
                             <option value="空閒">空閒</option>
                             <option value="結案">結案</option>
@@ -230,11 +220,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold">描述</label>
-                        <textarea class="form-control" name="Description" id="edit_Description" rows="2"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">負責人</label>
-                        <input type="text" class="form-control" name="Owner" id="edit_Owner">
+                        <textarea class="form-control" name="description" id="edit_Description" rows="2"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -246,8 +232,7 @@
     </div>
 </div>
 
-
-<!-- ════════ 刪除 Modal ════════ -->
+<!-- 刪除 Modal -->
 <div class="modal fade" id="deleteProjectModal" tabindex="-1">
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
@@ -272,8 +257,7 @@
     </div>
 </div>
 
-
-<!-- ════════ 詳細 Modal ════════ -->
+<!-- 詳細 Modal -->
 <div class="modal fade" id="detailProjectModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -335,7 +319,6 @@
     function openEditModal(boxId, description, owner, status) {
         document.getElementById('edit_BoxID_display').value = boxId;
         document.getElementById('edit_Description').value   = description;
-        document.getElementById('edit_Owner').value         = owner;
         document.getElementById('edit_Status').value        = status;
         document.getElementById('editProjectForm').action =
             "{% url 'material:box_edit' 'PLACEHOLDER' %}".replace('PLACEHOLDER', boxId);
@@ -355,7 +338,7 @@
         document.getElementById('d_Status').innerText      = status      || '—';
         document.getElementById('d_Owner').innerText       = owner       || '—';
         document.getElementById('d_CreateDate').innerText  = createDate  || '—';
-        document.getElementById('d_Locked').innerHTML      =
+        document.getElementById('d_Locked').innerHTML =
             locked === 'True'
             ? '<span class="text-danger"><i class="bi bi-lock-fill"></i> 已鎖定</span>'
             : '<span class="text-success"><i class="bi bi-unlock-fill"></i> 未鎖定</span>';

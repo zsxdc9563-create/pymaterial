@@ -1,7 +1,7 @@
 {% extends 'material/base.html' %}
 {% load static %}
 
-{% block title %}BOM 管理 - {{ box.BoxID }}{% endblock %}
+{% block title %}BOM 管理 - {{ box.box_id }}{% endblock %}
 {% block page_title %}BOM 到料管理{% endblock %}
 
 {% block extra_css %}
@@ -61,7 +61,8 @@
     .modal-overlay.show { display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s ease; }
     .modal-box { background: white; border-radius: 12px; width: 90%; max-width: 660px; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.25); animation: slideUp 0.25s ease; }
     .modal-header { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 18px 24px; border-radius: 12px 12px 0 0; display: flex; justify-content: space-between; align-items: center; }
-    .modal-header.danger { background: linear-gradient(135deg, #dc3545, #c82333); }
+    .modal-header.danger  { background: linear-gradient(135deg, #dc3545, #c82333); }
+    .modal-header.success { background: linear-gradient(135deg, #11998e, #38ef7d); }
     .modal-header h5 { margin: 0; font-weight: 700; }
     .modal-close { background: none; border: none; color: white; font-size: 26px; cursor: pointer; line-height: 1; padding: 0; }
     .modal-body { padding: 24px; }
@@ -90,26 +91,17 @@
 <!-- 頂部資訊 -->
 <div class="bom-header">
     <div>
-        <h4><i class="bi bi-list-check me-2"></i>{{ box.BoxID }} — BOM 到料管理</h4>
+        <h4><i class="bi bi-list-check me-2"></i>{{ box.box_id }} — BOM 到料管理</h4>
         <div class="meta">
-            {{ box.Description|default:"無描述" }}
-            &nbsp;|&nbsp; 類別：{{ box.Category }}
-            &nbsp;|&nbsp; 狀態：{{ box.Status|default:"—" }}
+            {{ box.description|default:"無描述" }}
+            &nbsp;|&nbsp; 類別：{{ box.get_box_type_display|default:"—" }}
+            &nbsp;|&nbsp; 狀態：{{ box.status|default:"—" }}
         </div>
     </div>
     <a href="{% url 'material:box_list' %}" class="btn btn-secondary btn-sm">
         <i class="bi bi-arrow-left"></i> 返回容器列表
     </a>
 </div>
-
-<!-- Django messages（只用 HTML alert，不用 Toast）-->
-{% if messages %}
-{% for msg in messages %}
-<div class="alert alert-{% if msg.tags == 'error' %}danger{% elif msg.tags == 'warning' %}warning{% else %}success{% endif %} alert-dismissible fade show">
-    {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-{% endfor %}
-{% endif %}
 
 <!-- 統計 -->
 <div class="stat-row">
@@ -141,15 +133,12 @@
 </div>
 {% endif %}
 
-<!-- 進度提示（三選一，不重複）-->
 {% if total == 0 %}
 <div class="progress-card not-started">
     <div class="title">📋 尚未設定 BOM 需求量</div>
     <div class="subtitle">請點擊「新增物料」按鈕新增物料並設定需求數量。</div>
 </div>
-
 {% elif is_all_ready %}
-<!-- 到齊 + 領料按鈕 -->
 <div class="progress-card all-ready">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div>
@@ -166,7 +155,6 @@
         </form>
     </div>
 </div>
-
 {% else %}
 <div class="progress-card in-progress">
     <div class="title">⚠️ 物料尚未全數到齊（{{ fulfilled_count }} / {{ total }} 項）</div>
@@ -208,16 +196,25 @@
                         {% elif item.is_bom_item and item.bom_status == 'missing' %}style="background:#fff8f8;"
                         {% elif item.is_bom_item and item.bom_status == 'partial' %}style="background:#fffdf0;"
                         {% endif %}>
-                        <td style="padding:10px 16px; font-weight:600;">{{ item.SN }}</td>
-                        <td>{{ item.ItemName }}</td>
-                        <td style="color:#6c757d; font-size:13px;">{{ item.Spec|default:"—" }}</td>
+                        <td style="padding:10px 16px; font-weight:600;">{{ item.sn }}</td>
+                        <td>{{ item.item_name }}</td>
+                        <td style="color:#6c757d; font-size:13px;">{{ item.spec|default:"—" }}</td>
                         <td class="text-center">
                             <span class="qty-badge {% if item.is_bom_item %}{% if item.bom_status == 'fulfilled' %}qty-ok{% elif item.bom_status == 'partial' %}qty-short{% else %}qty-missing{% endif %}{% else %}qty-normal{% endif %}">
-                                {{ item.Quantity }}
+                                {{ item.quantity }}
                             </span>
+                            {% if item.is_bom_item and item.required_qty %}
+                            <div style="margin-top:4px; background:#e9ecef; border-radius:4px; height:6px; width:80px; margin-left:auto; margin-right:auto;">
+                                {% widthratio item.quantity item.required_qty 100 as item_pct %}
+                                <div style="height:100%; border-radius:4px; width:{% if item_pct > 100 %}100{% else %}{{ item_pct }}{% endif %}%; background:{% if item.bom_status == 'fulfilled' %}#198754{% elif item.bom_status == 'partial' %}#ffc107{% else %}#dc3545{% endif %};"></div>
+                            </div>
+                            <div style="font-size:11px; color:#6c757d; margin-top:2px;">
+                                {{ item.quantity }} / {{ item.required_qty }}
+                            </div>
+                            {% endif %}
                         </td>
                         <td class="text-center">
-                            <span class="qty-badge qty-normal">{{ item.RequiredQty|default:"—" }}</span>
+                            <span class="qty-badge qty-normal">{{ item.required_qty|default:"—" }}</span>
                         </td>
                         <td class="text-center">
                             {% if item.shortage is not None %}
@@ -243,16 +240,24 @@
                         </td>
                         <td class="op-cell">
                             <div class="op-group">
-                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                    onclick="openEditModal('{{ item.id }}', '{{ item.SN }}', '{{ item.ItemName|escapejs }}', '{{ item.Spec|default:''|escapejs }}', {{ item.RequiredQty|default:1 }})">
-                                    <i class="bi bi-pencil"></i> 編輯
+                                <!-- 入料 -->
+                                <button type="button" class="btn btn-sm btn-success"
+                                    onclick="openStockInModal('{{ item.id }}','{{ item.sn|escapejs }}','{{ item.item_name|escapejs }}')">
+                                    <i class="bi bi-box-arrow-in-down"></i> 入料
                                 </button>
-                                <a href="{% url 'material:transaction_transfer' %}?sn={{ item.SN }}&source_box={{ box.BoxID }}"
-                                   class="btn btn-sm btn-primary">
-                                    <i class="bi bi-arrow-left-right"></i> 調撥
+                                <!-- 編輯 -->
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                    onclick="openEditModal('{{ item.id }}', '{{ item.sn }}', '{{ item.item_name|escapejs }}', '{{ item.spec|default:''|escapejs }}', {{ item.required_qty|default:1 }})">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <!-- 調撥 -->
+                                <a href="{% url 'material:transaction_transfer' %}?sn={{ item.sn }}&source_box={{ box.box_id }}"
+                                   class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-arrow-left-right"></i>
                                 </a>
+                                <!-- 刪除 -->
                                 <button type="button" class="btn btn-sm btn-outline-danger"
-                                    onclick="openDeleteModal('{{ item.id }}', '{{ item.SN }}', '{{ item.ItemName|escapejs }}')">
+                                    onclick="openDeleteModal('{{ item.id }}', '{{ item.sn }}', '{{ item.item_name|escapejs }}')">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </div>
@@ -271,6 +276,37 @@
     </div>
 </div>
 
+<!-- ════════ 入料 Modal ════════ -->
+<div class="modal-overlay" id="stockInModal" onclick="handleOverlayClick(event, 'stockInModal')">
+    <div class="modal-box" style="max-width:440px;">
+        <div class="modal-header success">
+            <h5><i class="bi bi-box-arrow-in-down me-2"></i>入料</h5>
+            <button type="button" class="modal-close" onclick="closeStockInModal()">&times;</button>
+        </div>
+        <form method="POST" action="{% url 'material:material_in' %}">
+            {% csrf_token %}
+            <input type="hidden" name="item_id" id="in_item_id">
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="text-muted small mb-1">料號 / 品名</div>
+                    <div class="fw-bold fs-5" id="in_item_info"></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">入料數量 <span class="text-danger">*</span></label>
+                    <input type="number" name="quantity" class="form-control form-control-lg text-center fw-bold" min="1" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">備註</label>
+                    <input type="text" name="remark" class="form-control" placeholder="選填，例如：採購到貨">
+                </div>
+            </div>
+            <div class="modal-footer-bar">
+                <button type="button" onclick="closeStockInModal()" class="btn btn-secondary">取消</button>
+                <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> 確認入料</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <!-- ════════ 新增物料 Modal ════════ -->
 <div class="modal-overlay" id="addItemModal" onclick="handleOverlayClick(event, 'addItemModal')">
@@ -292,16 +328,16 @@
                 <form method="POST" onsubmit="return validateExistingForm()">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="add_item">
-                    <input type="hidden" name="SN" id="existing_SN">
-                    <input type="hidden" name="ItemName" id="existing_ItemName">
-                    <input type="hidden" name="Spec" id="existing_Spec">
+                    <input type="hidden" name="sn" id="existing_sn">
+                    <input type="hidden" name="item_name" id="existing_item_name">
+                    <input type="hidden" name="spec" id="existing_spec">
                     <div class="mb-3">
                         <label class="form-label fw-bold">選擇現有料號</label>
                         <select class="form-select" onchange="fillFromExisting(this)">
                             <option value="">— 請選擇料號 —</option>
                             {% for item in existing_items %}
-                            <option value="{{ item.SN }}" data-name="{{ item.ItemName }}" data-spec="{{ item.Spec|default:'' }}">
-                                {{ item.SN }} — {{ item.ItemName }}{% if item.Spec %} ({{ item.Spec }}){% endif %}
+                            <option value="{{ item.sn }}" data-name="{{ item.item_name }}" data-spec="{{ item.spec|default:'' }}">
+                                {{ item.sn }} — {{ item.item_name }}{% if item.spec %} ({{ item.spec }}){% endif %}
                             </option>
                             {% endfor %}
                         </select>
@@ -314,15 +350,15 @@
                     <div class="row g-3">
                         <div class="col-4">
                             <label class="form-label fw-bold">實際數量</label>
-                            <input type="number" class="form-control" name="Quantity" value="0" min="0">
+                            <input type="number" class="form-control" name="quantity" value="0" min="0">
                         </div>
                         <div class="col-4">
                             <label class="form-label fw-bold">需求數量 <span style="color:#dc3545;">*</span></label>
-                            <input type="number" class="form-control" name="RequiredQty" value="1" min="1" required>
+                            <input type="number" class="form-control" name="required_qty" value="1" min="1" required>
                         </div>
                         <div class="col-4">
                             <label class="form-label fw-bold">位置</label>
-                            <input type="text" class="form-control" name="Location" placeholder="例如：A-01">
+                            <input type="text" class="form-control" name="location" placeholder="例如：A-01">
                         </div>
                     </div>
                     <div class="modal-footer-bar" style="margin: 20px -24px -24px;">
@@ -338,27 +374,27 @@
                     <div class="row g-3">
                         <div class="col-6">
                             <label class="form-label fw-bold">料號 <span style="color:#dc3545;">*</span></label>
-                            <input type="text" class="form-control" name="SN" placeholder="例如：R1001" required>
+                            <input type="text" class="form-control" name="sn" placeholder="例如：R1001" required>
                         </div>
                         <div class="col-6">
                             <label class="form-label fw-bold">品名 <span style="color:#dc3545;">*</span></label>
-                            <input type="text" class="form-control" name="ItemName" placeholder="例如：電阻 10kΩ" required>
+                            <input type="text" class="form-control" name="item_name" placeholder="例如：電阻 10kΩ" required>
                         </div>
                         <div class="col-12">
                             <label class="form-label fw-bold">規格</label>
-                            <input type="text" class="form-control" name="Spec" placeholder="例如：1/4W 5%">
+                            <input type="text" class="form-control" name="spec" placeholder="例如：1/4W 5%">
                         </div>
                         <div class="col-4">
                             <label class="form-label fw-bold">實際數量</label>
-                            <input type="number" class="form-control" name="Quantity" value="0" min="0">
+                            <input type="number" class="form-control" name="quantity" value="0" min="0">
                         </div>
                         <div class="col-4">
                             <label class="form-label fw-bold">需求數量 <span style="color:#dc3545;">*</span></label>
-                            <input type="number" class="form-control" name="RequiredQty" value="1" min="1" required>
+                            <input type="number" class="form-control" name="required_qty" value="1" min="1" required>
                         </div>
                         <div class="col-4">
                             <label class="form-label fw-bold">位置</label>
-                            <input type="text" class="form-control" name="Location" placeholder="例如：A-01">
+                            <input type="text" class="form-control" name="location" placeholder="例如：A-01">
                         </div>
                     </div>
                     <div class="modal-footer-bar" style="margin: 20px -24px -24px;">
@@ -370,7 +406,6 @@
         </div>
     </div>
 </div>
-
 
 <!-- ════════ 編輯需求數量 Modal ════════ -->
 <div class="modal-overlay" id="editItemModal" onclick="handleOverlayClick(event, 'editItemModal')">
@@ -402,19 +437,18 @@
                 </div>
                 <div>
                     <label class="form-label fw-bold" style="font-size:14px;">需求數量 <span style="color:#dc3545;">*</span></label>
-                    <input type="number" class="form-control" name="RequiredQty" id="edit_required_qty"
-                           min="1" required style="font-size:22px; font-weight:700; text-align:center; padding:10px; letter-spacing:2px;">
+                    <input type="number" class="form-control" name="required_qty" id="edit_required_qty"
+                           min="1" required style="font-size:22px; font-weight:700; text-align:center; padding:10px;">
                     <div style="font-size:12px; color:#6c757d; margin-top:6px;"><i class="bi bi-info-circle"></i> 最小值為 1</div>
                 </div>
                 <div class="modal-footer-bar" style="margin: 24px -24px -24px;">
-                    <button type="button" onclick="closeEditModal()" class="btn btn-secondary"><i class="bi bi-x-lg"></i> 取消</button>
+                    <button type="button" onclick="closeEditModal()" class="btn btn-secondary">取消</button>
                     <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> 確認更新</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
-
 
 <!-- ════════ 刪除 Modal ════════ -->
 <div class="modal-overlay" id="deleteItemModal" onclick="handleOverlayClick(event, 'deleteItemModal')">
@@ -445,9 +479,23 @@
 
 {% block extra_js %}
 <script>
+// ── 入料 Modal ──
+function openStockInModal(itemId, sn, name) {
+    document.getElementById('in_item_id').value       = itemId;
+    document.getElementById('in_item_info').innerText = sn + ' — ' + name;
+    document.getElementById('stockInModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+function closeStockInModal() {
+    document.getElementById('stockInModal').classList.remove('show');
+    document.body.style.overflow = 'auto';
+}
+
+// ── 新增 Modal ──
 function openAddModal()  { document.getElementById('addItemModal').classList.add('show'); document.body.style.overflow='hidden'; }
 function closeAddModal() { document.getElementById('addItemModal').classList.remove('show'); document.body.style.overflow='auto'; }
 
+// ── 編輯 Modal ──
 function openEditModal(itemId, sn, name, spec, requiredQty) {
     document.getElementById('edit_item_id').value            = itemId;
     document.getElementById('edit_sn_display').textContent   = sn;
@@ -462,6 +510,7 @@ function openEditModal(itemId, sn, name, spec, requiredQty) {
 }
 function closeEditModal() { document.getElementById('editItemModal').classList.remove('show'); document.body.style.overflow='auto'; }
 
+// ── 刪除 Modal ──
 function openDeleteModal(itemId, sn, name) {
     document.getElementById('delete_item_id').value         = itemId;
     document.getElementById('delete_item_info').textContent = sn + ' — ' + name;
@@ -470,14 +519,17 @@ function openDeleteModal(itemId, sn, name) {
 }
 function closeDeleteModal() { document.getElementById('deleteItemModal').classList.remove('show'); document.body.style.overflow='auto'; }
 
+// ── 點背景關閉 ──
 function handleOverlayClick(e, modalId) {
     if (e.target === document.getElementById(modalId)) {
+        if (modalId === 'stockInModal')    closeStockInModal();
         if (modalId === 'addItemModal')    closeAddModal();
         if (modalId === 'editItemModal')   closeEditModal();
         if (modalId === 'deleteItemModal') closeDeleteModal();
     }
 }
 
+// ── Tab 切換 ──
 function switchTab(tab) {
     document.getElementById('panel-existing').style.display = tab === 'existing' ? '' : 'none';
     document.getElementById('panel-manual').style.display   = tab === 'manual'   ? '' : 'none';
@@ -485,13 +537,14 @@ function switchTab(tab) {
     document.getElementById('tab-manual').classList.toggle('active',   tab === 'manual');
 }
 
+// ── 從現有料號填入 ──
 function fillFromExisting(select) {
     const opt     = select.options[select.selectedIndex];
     const preview = document.getElementById('itemPreview');
     if (!opt.value) { preview.classList.remove('show'); return; }
-    document.getElementById('existing_SN').value       = opt.value;
-    document.getElementById('existing_ItemName').value = opt.dataset.name;
-    document.getElementById('existing_Spec').value     = opt.dataset.spec || '';
+    document.getElementById('existing_sn').value        = opt.value;
+    document.getElementById('existing_item_name').value = opt.dataset.name;
+    document.getElementById('existing_spec').value      = opt.dataset.spec || '';
     document.getElementById('preview-sn').textContent   = opt.value;
     document.getElementById('preview-name').textContent = '品名：' + opt.dataset.name;
     document.getElementById('preview-spec').textContent = opt.dataset.spec ? '規格：' + opt.dataset.spec : '';
@@ -499,13 +552,14 @@ function fillFromExisting(select) {
 }
 
 function validateExistingForm() {
-    if (!document.getElementById('existing_SN').value) {
+    if (!document.getElementById('existing_sn').value) {
         showToast('請先選擇料號', true);
         return false;
     }
     return true;
 }
 
+// ── Toast ──
 function showToast(message, isError = false) {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
@@ -516,7 +570,12 @@ function showToast(message, isError = false) {
 }
 
 document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { closeAddModal(); closeEditModal(); closeDeleteModal(); }
+    if (e.key === 'Escape') {
+        closeStockInModal();
+        closeAddModal();
+        closeEditModal();
+        closeDeleteModal();
+    }
 });
 </script>
 {% endblock %}

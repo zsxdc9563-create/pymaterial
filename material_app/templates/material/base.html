@@ -146,9 +146,7 @@
             <a href="{% url 'material:box_list' %}" class="nav-link {% if request.resolver_match.url_name == 'box_list' %}active{% endif %}">
                 <i class="bi bi-grid-1x2"></i> 箱子列表
             </a>
-            <a href="{% url 'material:project_list' %}" class="nav-link ps-5 {% if request.resolver_match.url_name == 'project_list' %}active{% endif %}" style="font-size:0.9rem;">
-                <i class="bi bi-kanban"></i> 專案管理
-            </a>    
+               
             <a href="{% url 'material:material_list' %}" class="nav-link {% if request.resolver_match.url_name == 'material_list' %}active{% endif %}">
                 <i class="bi bi-stack"></i> 物料庫存
             </a>            

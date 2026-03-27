@@ -6,13 +6,8 @@
 {% block content %}
 
 <style>
-    .main-container { max-width: 1400px; margin: 0 auto; padding: 2rem 1rem; }
-
     .welcome-section { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 15px; margin-bottom: 2.5rem; box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3); }
-    .welcome-section h2 { font-size: 2rem; font-weight: 600; margin-bottom: 0.8rem; }
-    .user-info { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; font-size: 0.95rem; }
-    .user-info span { display: flex; align-items: center; gap: 0.3rem; }
-    .user-info .badge { font-size: 0.9rem; padding: 0.5rem 1rem; font-weight: 500; }
+    .welcome-section h2 { font-size: 2rem; font-weight: 600; margin-bottom: 0.5rem; }
 
     .section-title { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.8rem; padding-bottom: 0.8rem; border-bottom: 3px solid #e2e8f0; }
     .section-title i { font-size: 1.8rem; color: #667eea; }
@@ -24,50 +19,43 @@
     .function-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #667eea, #764ba2); opacity: 0; transition: opacity 0.3s; }
     .function-card:hover:not(.disabled)::before { opacity: 1; }
     .function-card:hover:not(.disabled) { transform: translateY(-8px); box-shadow: 0 12px 28px rgba(102, 126, 234, 0.2); border-color: #667eea; }
-    .function-card.disabled { opacity: 0.5; cursor: not-allowed; background: #f7fafc; }
+    .function-card.disabled { opacity: 0.45; cursor: not-allowed; background: #f7fafc; filter: grayscale(30%); }
 
-    .stat-number { position: absolute; top: 1.2rem; right: 1.2rem; width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 700; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); z-index: 1; }
-    .function-card.disabled .stat-number { background: #cbd5e0; box-shadow: none; }
-    .function-card[data-function="box_list"] .stat-number { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-    .function-card[data-function="material_list"] .stat-number { background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); }
-    .function-card[data-function="transaction_history"] .stat-number { background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%); }
-    .function-card[data-function="box_add"] .stat-number { background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); }
-    .function-card[data-function="transaction_transfer"] .stat-number { background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%); }
+    .stat-number { position: absolute; top: 1.2rem; right: 1.2rem; width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 700; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1; }
+    .function-card.disabled .stat-number { background: #cbd5e0 !important; box-shadow: none; }
+    .function-card[data-function="box_list"] .stat-number         { background: linear-gradient(135deg, #667eea, #764ba2); }
+    .function-card[data-function="material_list"] .stat-number    { background: linear-gradient(135deg, #48bb78, #38a169); }
+    .function-card[data-function="transaction_history"] .stat-number { background: linear-gradient(135deg, #ed8936, #dd6b20); }
+    .function-card[data-function="box_add"] .stat-number          { background: linear-gradient(135deg, #f56565, #e53e3e); }
+    .function-card[data-function="transaction_transfer"] .stat-number { background: linear-gradient(135deg, #4299e1, #3182ce); }
 
     .card-icon { font-size: 2.8rem; color: #667eea; margin-bottom: 1.2rem; transition: transform 0.3s; }
     .function-card:hover:not(.disabled) .card-icon { transform: scale(1.1); }
-    .function-card.disabled .card-icon { color: #cbd5e0; }
+    .function-card.disabled .card-icon { color: #a0aec0; }
     .function-card h4 { font-size: 1.3rem; font-weight: 600; color: #2d3748; margin-bottom: 0.6rem; }
     .function-card p { color: #718096; font-size: 0.9rem; margin-bottom: 1.2rem; line-height: 1.6; min-height: 2.5rem; }
 
-    .card-action { display: flex; justify-content: flex-end; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; }
+    .card-action { display: flex; justify-content: flex-end; align-items: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; }
     .btn-action { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 500; text-decoration: none; transition: all 0.2s; font-size: 0.9rem; }
-    .function-card:not(.disabled) .btn-action { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .function-card:not(.disabled) .btn-action { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
     .function-card:not(.disabled) .btn-action:hover { transform: translateX(5px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
     .function-card.disabled .btn-action { background: #e2e8f0; color: #a0aec0; cursor: not-allowed; pointer-events: none; }
+    .no-permission-label { font-size: 12px; color: #a0aec0; display: flex; align-items: center; gap: 4px; }
 
     .quick-actions { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem; }
     .quick-action-btn { display: inline-flex; align-items: center; gap: 0.8rem; padding: 0.8rem 1.5rem; border-radius: 10px; font-weight: 500; text-decoration: none; transition: all 0.3s; border: 2px solid; font-size: 0.95rem; }
     .quick-action-btn i { font-size: 1.2rem; }
     .quick-action-btn:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
-    .quick-action-btn.primary { background: #667eea; color: white; border-color: #667eea; }
-    .quick-action-btn.primary:hover { background: #5568d3; border-color: #5568d3; }
+    .quick-action-btn.primary   { background: #667eea; color: white; border-color: #667eea; }
+    .quick-action-btn.primary:hover   { background: #5568d3; border-color: #5568d3; }
     .quick-action-btn.secondary { background: white; color: #667eea; border-color: #667eea; }
     .quick-action-btn.secondary:hover { background: #667eea; color: white; }
-    .quick-action-btn.success { background: #48bb78; color: white; border-color: #48bb78; }
-    .quick-action-btn.success:hover { background: #38a169; border-color: #38a169; }
-    .quick-action-btn.warning { background: #ed8936; color: white; border-color: #ed8936; }
-    .quick-action-btn.warning:hover { background: #dd6b20; border-color: #dd6b20; }
+    .quick-action-btn.success   { background: #48bb78; color: white; border-color: #48bb78; }
+    .quick-action-btn.success:hover   { background: #38a169; border-color: #38a169; }
+    .quick-action-btn.warning   { background: #ed8936; color: white; border-color: #ed8936; }
+    .quick-action-btn.warning:hover   { background: #dd6b20; border-color: #dd6b20; }
 
-    @media (max-width: 768px) {
-        .main-container { padding: 1rem 0.5rem; }
-        .welcome-section { padding: 1.5rem; }
-        .welcome-section h2 { font-size: 1.5rem; }
-        .user-info { gap: 1rem; font-size: 0.85rem; }
-        .function-grid { grid-template-columns: 1fr; gap: 1rem; }
-        .quick-actions { flex-direction: column; }
-        .quick-action-btn { width: 100%; justify-content: center; }
-    }
+    .role-badge { display: inline-block; padding: 4px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-top: 8px; background: rgba(255,255,255,0.25); color: white; }
 </style>
 
 <div class="container mt-4">
@@ -75,7 +63,13 @@
     <!-- 歡迎區塊 -->
     <div class="welcome-section">
         <h2><i class="bi bi-house-door me-2"></i>歡迎回來，{{ current_user_name }}</h2>
-        
+        {% if is_admin %}
+            <span class="role-badge"><i class="bi bi-shield-fill-check me-1"></i>管理員</span>
+        {% elif is_manager %}
+            <span class="role-badge"><i class="bi bi-person-badge me-1"></i>管理者</span>
+        {% elif is_employee %}
+            <span class="role-badge"><i class="bi bi-person me-1"></i>員工</span>
+        {% endif %}
     </div>
 
     <!-- 快速動作 -->
@@ -101,7 +95,6 @@
         </a>
     </div>
 
-
     <!-- 系統功能 -->
     <div class="section-title">
         <i class="bi bi-grid-3x3-gap-fill"></i>
@@ -110,84 +103,83 @@
 
     <div class="function-grid">
 
-        <!-- 容器管理 -->
-        <div class="function-card {% if feature_cards.box_list.disabled %}disabled{% endif %}" data-function="box_list">
+        <!-- 容器管理：所有人可看 -->
+        <div class="function-card" data-function="box_list">
             <div class="stat-number">{{ stats.total_boxes }}</div>
-            <div class="card-icon"><i class="bi {{ feature_cards.box_list.icon }}"></i></div>
-            <h4>{{ feature_cards.box_list.name }}</h4>
-            <p>{{ feature_cards.box_list.description }}</p>
+            <div class="card-icon"><i class="bi bi-box-seam"></i></div>
+            <h4>容器管理</h4>
+            <p>查看和管理所有容器</p>
             <div class="card-action">
-                {% if not feature_cards.box_list.disabled %}
-                    <a href="{% url feature_cards.box_list.url %}" class="btn-action">前往使用 <i class="bi bi-arrow-right-circle"></i></a>
-                {% else %}
-                    <span class="btn-action">暫不可用 <i class="bi bi-x-circle"></i></span>
-                {% endif %}
+                <a href="{% url 'material:box_list' %}" class="btn-action">前往使用 <i class="bi bi-arrow-right-circle"></i></a>
             </div>
         </div>
 
-        <!-- 物品管理 -->
-        <div class="function-card {% if feature_cards.material_list.disabled %}disabled{% endif %}" data-function="material_list">
+        <!-- 物品管理：所有人可看 -->
+        <div class="function-card" data-function="material_list">
             <div class="stat-number">{{ stats.total_items }}</div>
-            <div class="card-icon"><i class="bi {{ feature_cards.material_list.icon }}"></i></div>
-            <h4>{{ feature_cards.material_list.name }}</h4>
-            <p>{{ feature_cards.material_list.description }}</p>
+            <div class="card-icon"><i class="bi bi-stack"></i></div>
+            <h4>物品管理</h4>
+            <p>查看所有容器內的物料庫存</p>
             <div class="card-action">
-                {% if not feature_cards.material_list.disabled %}
-                    <a href="{% url feature_cards.material_list.url %}" class="btn-action">前往使用 <i class="bi bi-arrow-right-circle"></i></a>
-                {% else %}
-                    <span class="btn-action">暫不可用 <i class="bi bi-x-circle"></i></span>
-                {% endif %}
+                <a href="{% url 'material:material_list' %}" class="btn-action">前往使用 <i class="bi bi-arrow-right-circle"></i></a>
             </div>
         </div>
 
-        <!-- 物品調撥 -->
-        <div class="function-card {% if feature_cards.transaction_transfer.disabled %}disabled{% endif %}" data-function="transaction_transfer">
-            <div class="stat-number"><i class="bi bi-check-lg"></i></div>
-            <div class="card-icon"><i class="bi {{ feature_cards.transaction_transfer.icon }}"></i></div>
-            <h4>{{ feature_cards.transaction_transfer.name }}</h4>
-            <p>{{ feature_cards.transaction_transfer.description }}</p>
-            <div class="card-action">
-                {% if not feature_cards.transaction_transfer.disabled %}
-                    <a href="{% url feature_cards.transaction_transfer.url %}" class="btn-action">前往使用 <i class="bi bi-arrow-right-circle"></i></a>
-                {% else %}
-                    <span class="btn-action">暫不可用 <i class="bi bi-x-circle"></i></span>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- 新增容器 -->
-        <div class="function-card {% if feature_cards.box_add.disabled %}disabled{% endif %}" data-function="box_add">
+        <!-- 新增容器：只有 admin / manager，emp 顯示 disabled -->
+        <div class="function-card {% if not is_admin and not is_manager %}disabled{% endif %}" data-function="box_add">
             <div class="stat-number">{{ stats.locked_boxes }}</div>
-            <div class="card-icon"><i class="bi {{ feature_cards.box_add.icon }}"></i></div>
-            <h4>{{ feature_cards.box_add.name }}</h4>
-            <p>{{ feature_cards.box_add.description }}</p>
+            <div class="card-icon"><i class="bi bi-plus-circle"></i></div>
+            <h4>新增容器</h4>
+            <p>建立新的容器並設定類型與負責人</p>
             <div class="card-action">
-                {% if not feature_cards.box_add.disabled %}
-                    <a href="{% url feature_cards.box_add.url %}" class="btn-action">前往使用 <i class="bi bi-arrow-right-circle"></i></a>
+                {% if is_admin or is_manager %}
+                    <a href="{% url 'material:box_list' %}" class="btn-action">前往使用 <i class="bi bi-arrow-right-circle"></i></a>
                 {% else %}
+                    <span class="no-permission-label"><i class="bi bi-lock-fill"></i> 權限不足</span>
                     <span class="btn-action">暫不可用 <i class="bi bi-x-circle"></i></span>
                 {% endif %}
             </div>
         </div>
 
-        <!-- 交易記錄 -->
-        <div class="function-card {% if feature_cards.transaction_history.disabled %}disabled{% endif %}" data-function="transaction_history">
-            <div class="stat-number">{{ stats.recent_transactions }}</div>
-            <div class="card-icon"><i class="bi {{ feature_cards.transaction_history.icon }}"></i></div>
-            <h4>{{ feature_cards.transaction_history.name }}</h4>
-            <p>{{ feature_cards.transaction_history.description }}</p>
+        <!-- 物品調撥：所有人可用 -->
+        <div class="function-card" data-function="transaction_transfer">
+            <div class="stat-number"><i class="bi bi-arrow-left-right"></i></div>
+            <div class="card-icon"><i class="bi bi-arrow-left-right"></i></div>
+            <h4>物品調撥</h4>
+            <p>在不同容器之間移動物品</p>
             <div class="card-action">
-                {% if not feature_cards.transaction_history.disabled %}
-                    <a href="{% url feature_cards.transaction_history.url %}" class="btn-action">前往使用 <i class="bi bi-arrow-right-circle"></i></a>
+                <a href="{% url 'material:transaction_transfer' %}" class="btn-action">前往使用 <i class="bi bi-arrow-right-circle"></i></a>
+            </div>
+        </div>
+
+        <!-- BOM 管理：只有 admin / manager，emp 顯示 disabled -->
+        <div class="function-card {% if not is_admin and not is_manager %}disabled{% endif %}" data-function="box_add">
+            <div class="stat-number"><i class="bi bi-list-check"></i></div>
+            <div class="card-icon"><i class="bi bi-list-check"></i></div>
+            <h4>BOM 管理</h4>
+            <p>管理專案物料需求清單與到料進度</p>
+            <div class="card-action">
+                {% if is_admin or is_manager %}
+                    <a href="{% url 'material:box_list' %}?tab=project" class="btn-action">前往使用 <i class="bi bi-arrow-right-circle"></i></a>
                 {% else %}
+                    <span class="no-permission-label"><i class="bi bi-lock-fill"></i> 權限不足</span>
                     <span class="btn-action">暫不可用 <i class="bi bi-x-circle"></i></span>
                 {% endif %}
+            </div>
+        </div>
+
+        <!-- 交易記錄：所有人可看 -->
+        <div class="function-card" data-function="transaction_history">
+            <div class="stat-number">{{ stats.recent_transactions }}</div>
+            <div class="card-icon"><i class="bi bi-clock-history"></i></div>
+            <h4>交易記錄</h4>
+            <p>查看所有入庫、出庫與調撥的歷史記錄</p>
+            <div class="card-action">
+                <a href="{% url 'material:transaction_history' %}" class="btn-action">前往使用 <i class="bi bi-arrow-right-circle"></i></a>
             </div>
         </div>
 
     </div>
-
-    
 
 </div>
 {% endblock %}
