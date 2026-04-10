@@ -11,7 +11,101 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 from ..models import MaterialItems, MaterialOverview, TransactionLog
 
+
+import logging
+from ..models import Role, Permission, UserRole, RolePermission
+from django.contrib.auth.models import User
+
 logger = logging.getLogger(__name__)
+
+
+# ── Role ──────────────────────────────────────────────
+
+def get_all_roles():
+    return Role.objects.all().order_by('id')
+
+
+def get_role_or_none(role_id):
+    try:
+        return Role.objects.get(id=role_id)
+    except Role.DoesNotExist:
+        return None
+
+
+def create_role(name, description=None):
+    return Role.objects.create(name=name, description=description)
+
+
+def update_role(role, name, description=None):
+    role.name = name
+    role.description = description
+    role.save()
+    return role
+
+
+def delete_role(role):
+    role.delete()
+
+
+# ── Permission ────────────────────────────────────────
+
+def get_all_permissions():
+    return Permission.objects.all().order_by('id')
+
+
+def get_permission_or_none(permission_id):
+    try:
+        return Permission.objects.get(id=permission_id)
+    except Permission.DoesNotExist:
+        return None
+
+
+def create_permission(name, description=None):
+    return Permission.objects.create(name=name, description=description)
+
+
+def delete_permission(permission):
+    permission.delete()
+
+
+# ── UserRole ──────────────────────────────────────────
+
+def get_all_user_roles():
+    return UserRole.objects.select_related('user', 'role').all()
+
+
+def assign_role_to_user(user, role):
+    user_role, created = UserRole.objects.get_or_create(user=user, role=role)
+    return user_role, created
+
+
+def remove_role_from_user(user, role):
+    UserRole.objects.filter(user=user, role=role).delete()
+
+
+def get_user_roles(user):
+    return UserRole.objects.filter(user=user).select_related('role')
+
+
+# ── RolePermission ────────────────────────────────────
+
+def get_all_role_permissions():
+    return RolePermission.objects.select_related('role', 'permission').all()
+
+
+def assign_permission_to_role(role, permission):
+    role_permission, created = RolePermission.objects.get_or_create(
+        role=role, permission=permission
+    )
+    return role_permission, created
+
+
+def remove_permission_from_role(role, permission):
+    RolePermission.objects.filter(role=role, permission=permission).delete()
+
+
+def get_role_permissions(role):
+    return RolePermission.objects.filter(role=role).select_related('permission')
 
 
 # ── 查詢 ──────────────────────────────────────────────
