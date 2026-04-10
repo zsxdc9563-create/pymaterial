@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
+
+
 # 載入 .env 檔案
 load_dotenv()
 
@@ -39,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'material_app',
     'rest_framework',
+    'corsheaders',
 ]
 
 
@@ -47,6 +50,7 @@ INSTALLED_APPS = [
 # ==================================================
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -89,17 +93,20 @@ TEMPLATES = [
 # 資料庫
 # ==================================================
 
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME':     os.environ.get('DB_NAME', 'pymaterial'),
-        'USER':     os.environ.get('DB_USER', 'postgres'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-        'HOST':     os.environ.get('DB_HOST', 'localhost'),
-        'PORT':     os.environ.get('DB_PORT', '5432'),
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'material',
+        'USER': 'root',
+        'PASSWORD': 'root1234',
+        'HOST': 'localhost',
+        'PORT': '3306',
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+        },
     }
 }
-
 
 # ==================================================
 # 認證
@@ -128,6 +135,23 @@ CACHES = {
     }
 }
 
+
+
+
+
+
+
+
+# ==================================================
+# Email 設定（Gmail）
+# ==================================================
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'zsxdc9563@gmail.com'
+EMAIL_HOST_PASSWORD = 'xjegkmdnvmggzdas'
+DEFAULT_FROM_EMAIL = 'zsxdc9563@gmail.com'
 
 # ==================================================
 # 日誌
@@ -181,6 +205,23 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
 }
+#SessionAuthentication（原本的）
+#登入之後 Django 會在瀏覽器存一個 Cookie，之後每次請求都帶著這個 Cookie 來驗證身份。
+#使用者登入 → Django 存 Cookie → 之後請求帶 Cookie → Django 認得你
+#適合：傳統網頁（Django Template）
+
+#JWTAuthentication（新加的）
+#登入之後後端回傳一個 Token 字串，之後每次請求都在 Header 帶著這個 Token。
+#使用者登入 → 後端回傳 Token → 之後請求帶 Token → 後端認得你
+#適合：前後端分離（React + Django API）
+
+
+
+#   在 Django 後端告訴瀏覽器：
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]

@@ -25,3 +25,5 @@ from .transaction_views import (
     transaction_transfer,
     transaction_history,
 )
+
+from . import borrow_views

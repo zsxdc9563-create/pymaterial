@@ -10,6 +10,10 @@ from .models import (
     BOMNode,
     BOMRelease,
     BOMReleaseLog,
+    Role,
+    Permission,
+    UserRole,
+    RolePermission,
 )
 
 
@@ -18,10 +22,6 @@ from .models import (
 # ────────────────────────────────────────────
 
 class UserBriefSerializer(serializers.ModelSerializer):
-    """
-    User 簡要資訊，用於巢狀內嵌（唯讀）。
-    只回傳 id / username / email，不暴露敏感欄位。
-    """
     class Meta:
         model = User
         fields = ['id', 'username', 'email']
@@ -43,11 +43,6 @@ class CategorySerializer(serializers.ModelSerializer):
 # ────────────────────────────────────────────
 
 class BoxSerializer(serializers.ModelSerializer):
-    """
-    箱子序列化器。
-    - owner：巢狀回傳完整 User 物件（id + username + email），唯讀
-    - 寫入時用 owner_id 指定使用者
-    """
     owner = UserBriefSerializer(read_only=True)
     owner_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
@@ -60,15 +55,9 @@ class BoxSerializer(serializers.ModelSerializer):
     class Meta:
         model = MaterialOverview
         fields = [
-            'box_id',
-            'box_type',
-            'description',
-            'owner',        # 讀：完整 user 物件
-            'owner_id',     # 寫：只需傳 user pk
-            'status',
-            'is_locked',
-            'locked_at',
-            'created_at',
+            'box_id', 'box_type', 'description',
+            'owner', 'owner_id',
+            'status', 'is_locked', 'locked_at', 'created_at',
         ]
         read_only_fields = ['created_at']
 
@@ -78,12 +67,6 @@ class BoxSerializer(serializers.ModelSerializer):
 # ────────────────────────────────────────────
 
 class MaterialSerializer(serializers.ModelSerializer):
-    """
-    物料序列化器。
-    - box：巢狀回傳完整 BoxSerializer，唯讀
-    - 寫入時用 box_id 指定箱子
-    - bom_status / shortage 是 model property，唯讀回傳
-    """
     box = BoxSerializer(read_only=True)
     box_id = serializers.PrimaryKeyRelatedField(
         queryset=MaterialOverview.objects.all(),
@@ -98,36 +81,37 @@ class MaterialSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
-
-    # model property → 唯讀
-    bom_status = serializers.ReadOnlyField()
+    bom_status = serializers.SerializerMethodField()
     shortage = serializers.ReadOnlyField()
     total_price = serializers.SerializerMethodField()
 
     class Meta:
         model = MaterialItems
         fields = [
-            'id',
-            'sn',
-            'item_name',
-            'spec',
-            'location',
-            'quantity',
-            'price',
-            'total_price',      # SerializerMethodField
-            'required_qty',
-            'updated_at',
-            'box',              # 讀：巢狀 BoxSerializer
-            'box_id',           # 寫：只需傳 box_id
-            'category',         # 讀：巢狀 CategorySerializer
-            'category_id',      # 寫：只需傳 category pk
-            'bom_status',       # property
-            'shortage',         # property
+            'id', 'sn', 'item_name', 'spec', 'location',
+            'quantity', 'price', 'total_price', 'required_qty', 'updated_at',
+            'box', 'box_id', 'category', 'category_id',
+            'bom_status', 'shortage',
         ]
         read_only_fields = ['updated_at']
 
     def get_total_price(self, obj):
         return obj.get_total_price()
+
+    def get_bom_status(self, obj):
+        if obj.required_qty is None:
+            return None
+        # 從 view 傳入的 context 取得已完成出庫的 item id 集合
+        # 這樣可以避免每筆都打一次 DB（N+1 問題）
+        done_ids = self.context.get('done_item_ids', set())
+        if obj.pk in done_ids:
+            return 'fulfilled'
+        if obj.quantity == 0:
+            return 'missing'
+        elif obj.quantity < obj.required_qty:
+            return 'partial'
+        else:
+            return 'fulfilled'
 
 
 # ────────────────────────────────────────────
@@ -135,23 +119,8 @@ class MaterialSerializer(serializers.ModelSerializer):
 # ────────────────────────────────────────────
 
 class TransactionLogSerializer(serializers.ModelSerializer):
-    """
-    交易記錄序列化器。
-    - operator：回傳 username 字串（可讀性高），唯讀
-    - item：回傳 sn 字串，唯讀
-    兩者寫入時分別用 operator_id / item_id。
-    """
-    # 讀：字串（可讀性高）
-    operator = serializers.SlugRelatedField(
-        slug_field='username',
-        read_only=True,
-    )
-    item = serializers.SlugRelatedField(
-        slug_field='sn',
-        read_only=True,
-    )
-
-    # 寫：pk
+    operator = serializers.SlugRelatedField(slug_field='username', read_only=True)
+    item = serializers.SlugRelatedField(slug_field='sn', read_only=True)
     operator_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
         source='operator',
@@ -170,19 +139,9 @@ class TransactionLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = TransactionLog
         fields = [
-            'id',
-            'action_type',
-            'from_box_id',
-            'to_box_id',
-            'trans_qty',
-            'stock_before',
-            'stock_after',
-            'remark',
-            'timestamp',
-            'operator',         # 讀：username
-            'operator_id',      # 寫：user pk
-            'item',             # 讀：sn 字串
-            'item_id',          # 寫：item pk
+            'id', 'action_type', 'from_box_id', 'to_box_id',
+            'trans_qty', 'stock_before', 'stock_after', 'remark', 'timestamp',
+            'operator', 'operator_id', 'item', 'item_id',
         ]
         read_only_fields = ['timestamp', 'stock_before', 'stock_after']
 
@@ -192,10 +151,6 @@ class TransactionLogSerializer(serializers.ModelSerializer):
 # ────────────────────────────────────────────
 
 class BoxPermissionSerializer(serializers.ModelSerializer):
-    """
-    箱子權限序列化器。
-    讀取時顯示 username 與 box_id，寫入時用 pk。
-    """
     user = serializers.SlugRelatedField(slug_field='username', read_only=True)
     box = serializers.SlugRelatedField(slug_field='box_id', read_only=True)
     user_id = serializers.PrimaryKeyRelatedField(
@@ -211,15 +166,7 @@ class BoxPermissionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BoxPermission
-        fields = [
-            'id',
-            'user',         # 讀：username
-            'user_id',      # 寫：pk
-            'box',          # 讀：box_id
-            'box_id',       # 寫：pk
-            'can_read',
-            'can_write',
-        ]
+        fields = ['id', 'user', 'user_id', 'box', 'box_id', 'can_read', 'can_write']
 
 
 # ────────────────────────────────────────────
@@ -227,15 +174,9 @@ class BoxPermissionSerializer(serializers.ModelSerializer):
 # ────────────────────────────────────────────
 
 class BorrowRequestSerializer(serializers.ModelSerializer):
-    """
-    借用申請序列化器。
-    - requester / approver：回傳 username
-    - item：回傳 sn
-    """
     requester = serializers.SlugRelatedField(slug_field='username', read_only=True)
     approver = serializers.SlugRelatedField(slug_field='username', read_only=True, allow_null=True)
     item = serializers.SlugRelatedField(slug_field='sn', read_only=True)
-
     item_id = serializers.PrimaryKeyRelatedField(
         queryset=MaterialItems.objects.all(),
         source='item',
@@ -245,18 +186,9 @@ class BorrowRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = BorrowRequest
         fields = [
-            'id',
-            'item',                 # 讀：sn
-            'item_id',              # 寫：pk
-            'requester',            # 讀：username（由 view 帶入，不需前端傳）
-            'approver',             # 讀：username
-            'qty',
-            'status',
-            'expected_return_date',
-            'actual_return_date',
-            'remark',
-            'created_at',
-            'updated_at',
+            'id', 'item', 'item_id', 'requester', 'approver',
+            'qty', 'status', 'expected_return_date', 'actual_return_date',
+            'remark', 'created_at', 'updated_at',
         ]
         read_only_fields = ['requester', 'approver', 'status', 'created_at', 'updated_at']
 
@@ -266,30 +198,14 @@ class BorrowRequestSerializer(serializers.ModelSerializer):
 # ────────────────────────────────────────────
 
 class BOMNodeSerializer(serializers.ModelSerializer):
-    """
-    BOM 節點序列化器（扁平，不遞迴展開）。
-    樹狀展開由 BOMTreeSerializer 處理。
-    """
     item_sn = serializers.CharField(source='item.sn', read_only=True, allow_null=True)
 
     class Meta:
         model = BOMNode
-        fields = [
-            'id',
-            'name',
-            'parent',
-            'item',
-            'item_sn',      # 讀：sn 字串
-            'qty_required',
-            'level',
-        ]
+        fields = ['id', 'name', 'parent', 'item', 'item_sn', 'qty_required', 'level']
 
 
 class BOMNodeTreeSerializer(serializers.ModelSerializer):
-    """
-    BOM 樹狀序列化器（遞迴展開子節點）。
-    用於前端渲染 BOM 樹。
-    """
     children = serializers.SerializerMethodField()
     item_sn = serializers.CharField(source='item.sn', read_only=True, allow_null=True)
 
@@ -298,8 +214,7 @@ class BOMNodeTreeSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'item', 'item_sn', 'qty_required', 'level', 'children']
 
     def get_children(self, obj):
-        children = obj.children.all()
-        return BOMNodeTreeSerializer(children, many=True).data
+        return BOMNodeTreeSerializer(obj.children.all(), many=True).data
 
 
 class BOMReleaseLogSerializer(serializers.ModelSerializer):
@@ -307,35 +222,68 @@ class BOMReleaseLogSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BOMReleaseLog
-        fields = [
-            'id',
-            'item',
-            'item_sn',
-            'required_qty',
-            'actual_qty',
-            'is_shortage',
-        ]
+        fields = ['id', 'item', 'item_sn', 'required_qty', 'actual_qty', 'is_shortage']
 
 
 class BOMReleaseSerializer(serializers.ModelSerializer):
-    """
-    BOM 批次出庫序列化器。
-    - logs：巢狀回傳出庫明細
-    - created_by：回傳 username
-    """
     created_by = serializers.SlugRelatedField(slug_field='username', read_only=True)
     logs = BOMReleaseLogSerializer(many=True, read_only=True)
 
     class Meta:
         model = BOMRelease
-        fields = [
-            'id',
-            'bom_root',
-            'produce_qty',
-            'status',
-            'created_by',
-            'created_at',
-            'remark',
-            'logs',
-        ]
+        fields = ['id', 'bom_root', 'produce_qty', 'status', 'created_by', 'created_at', 'remark', 'logs']
         read_only_fields = ['status', 'created_by', 'created_at', 'logs']
+
+
+# ────────────────────────────────────────────
+# RBAC
+# ────────────────────────────────────────────
+
+class RoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Role
+        fields = ['id', 'name', 'description']
+
+
+class PermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Permission
+        fields = ['id', 'name', 'description']
+
+
+class UserRoleSerializer(serializers.ModelSerializer):
+    user = serializers.SlugRelatedField(slug_field='username', read_only=True)
+    role = RoleSerializer(read_only=True)
+    user_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source='user',
+        write_only=True,
+    )
+    role_id = serializers.PrimaryKeyRelatedField(
+        queryset=Role.objects.all(),
+        source='role',
+        write_only=True,
+    )
+
+    class Meta:
+        model = UserRole
+        fields = ['id', 'user', 'user_id', 'role', 'role_id']
+
+
+class RolePermissionSerializer(serializers.ModelSerializer):
+    role = RoleSerializer(read_only=True)
+    permission = PermissionSerializer(read_only=True)
+    role_id = serializers.PrimaryKeyRelatedField(
+        queryset=Role.objects.all(),
+        source='role',
+        write_only=True,
+    )
+    permission_id = serializers.PrimaryKeyRelatedField(
+        queryset=Permission.objects.all(),
+        source='permission',
+        write_only=True,
+    )
+
+    class Meta:
+        model = RolePermission
+        fields = ['id', 'role', 'role_id', 'permission', 'permission_id']

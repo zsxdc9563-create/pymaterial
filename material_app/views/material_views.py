@@ -51,7 +51,6 @@ def material_list(request):
 
 @login_required
 def material_add(request):
-    # 只有 Admin / Manager 可以新增物料
     if not can_edit_material(request.user):
         messages.error(request, '權限不足，無法新增物料')
         return redirect('material:material_list')
@@ -86,7 +85,6 @@ def material_add(request):
 
 @login_required
 def material_edit(request, item_id):
-    # 只有 Admin / Manager 可以編輯物料
     if not can_edit_material(request.user):
         messages.error(request, '權限不足，無法編輯物料')
         return redirect('material:material_list')
@@ -119,7 +117,6 @@ def material_edit(request, item_id):
 
 @login_required
 def material_delete(request, item_id):
-    # 只有 Admin / Manager 可以刪除物料
     if not can_edit_material(request.user):
         messages.error(request, '權限不足，無法刪除物料')
         return redirect('material:material_list')
@@ -139,7 +136,6 @@ def material_delete(request, item_id):
 @require_POST
 @login_required
 def material_out_view(request):
-    # 所有登入使用者都可以出庫
     try:
         stock_out(
             item_id     = request.POST.get('item_id'),
@@ -157,7 +153,6 @@ def material_out_view(request):
 @require_POST
 @login_required
 def material_in_view(request):
-    # 所有登入使用者都可以入庫
     try:
         stock_in(
             item_id   = request.POST.get('item_id'),
@@ -175,7 +170,6 @@ def material_in_view(request):
 @require_POST
 @login_required
 def material_adjust_view(request):
-    # 只有 Admin / Manager 可以盤點調整
     if not can_edit_material(request.user):
         messages.error(request, '權限不足，無法執行盤點調整')
         return redirect('material:material_list')
@@ -207,20 +201,28 @@ class MaterialListCreateAPIView(APIView):
     def post(self, request):
         if not can_edit_material(request.user):
             return Response({'error': '權限不足'}, status=status.HTTP_403_FORBIDDEN)
+
         serializer = MaterialSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             item = create_item(
-                sn        = serializer.validated_data['sn'],
-                box_id    = serializer.validated_data['box'].box_id,
-                item_name = serializer.validated_data['item_name'],
-                spec      = serializer.validated_data.get('spec'),
-                location  = serializer.validated_data.get('location'),
-                quantity  = serializer.validated_data.get('quantity', 0),
-                price     = serializer.validated_data.get('price'),
-                operator  = request.user,
+                sn           = serializer.validated_data['sn'],
+                box_id       = serializer.validated_data['box'].box_id,
+                item_name    = serializer.validated_data['item_name'],
+                spec         = serializer.validated_data.get('spec'),
+                location     = serializer.validated_data.get('location'),
+                quantity     = serializer.validated_data.get('quantity', 0),
+                price        = serializer.validated_data.get('price'),
+                operator     = request.user,
             )
+            # required_qty 不在 create_item 參數裡，新增後另外 update
+            required_qty = serializer.validated_data.get('required_qty')
+            if required_qty is not None:
+                item.required_qty = required_qty
+                item.save(update_fields=['required_qty'])
+
             return Response(MaterialSerializer(item).data, status=status.HTTP_201_CREATED)
         except ValueError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -251,6 +253,11 @@ class MaterialDetailAPIView(APIView):
                 quantity  = serializer.validated_data.get('quantity', item.quantity),
                 box_id    = serializer.validated_data['box'].box_id if 'box' in serializer.validated_data else None,
             )
+            # required_qty 同樣另外處理
+            if 'required_qty' in serializer.validated_data:
+                updated.required_qty = serializer.validated_data['required_qty']
+                updated.save(update_fields=['required_qty'])
+
             return Response(MaterialSerializer(updated).data)
         except ValueError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

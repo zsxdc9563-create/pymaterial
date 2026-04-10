@@ -1,7 +1,10 @@
 # material_app/urls.py
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from .views import box_views, material_views, transaction_views
+from .views import box_views, material_views, transaction_views, rbac_views, borrow_views
+
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
 
 app_name = 'material'
 
@@ -21,6 +24,26 @@ urlpatterns = [
     # ── 首頁 ──────────────────────────────────────────────────
     path('', box_views.index, name='index'),
 
+     # ── JWT 登入 ──────────────────────────────────────────────
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+
+    # ── 忘記密碼api──────────────────────────────────────────────
+     path('api/forgot-password/',rbac_views.ForgotPasswordAPIView.as_view(), name='api_forgot_password'),
+     path('api/reset-password/' ,rbac_views.ResetPasswordAPIView.as_view(),  name='api_reset_password'),
+    
+     # ── RBAC API ──────────────────────────────────────────────
+    path('api/roles/',                  rbac_views.RoleListCreateAPIView.as_view(),           name='api_role_list'),
+    path('api/roles/<int:role_id>/',    rbac_views.RoleDetailAPIView.as_view(),               name='api_role_detail'),
+    path('api/permissions/',            rbac_views.PermissionListCreateAPIView.as_view(),     name='api_permission_list'),
+    path('api/user-roles/',             rbac_views.UserRoleListCreateAPIView.as_view(),       name='api_user_role_list'),
+    path('api/role-permissions/',       rbac_views.RolePermissionListCreateAPIView.as_view(), name='api_role_permission_list'),
+    path('api/register/',               rbac_views.RegisterAPIView.as_view(),                 name='api_register'),
+    path('api/users/',                  rbac_views.UserListAPIView.as_view(),                 name='api_user_list'),
+    path('api/me/',                     rbac_views.MeAPIView.as_view(),                       name='api_me'),
+    
+    
     # ── Box 頁面 ──────────────────────────────────────────────
     path('boxes/',                      box_views.box_list,              name='box_list'),
     path('boxes/add/',                  box_views.box_add,               name='box_add'),
@@ -35,8 +58,10 @@ urlpatterns = [
     path('boxes/<str:box_id>/bom/',     box_views.box_bom,               name='box_bom'),
     
     # ── 專案 BOM ──────────────────────────────────────────────
-    path('projects/', box_views.project_list, name='project_list'),
-
+     path('projects/',                    box_views.project_list,                 name='project_list'),
+     path('api/projects/',                box_views.ProjectListAPIView.as_view(), name='api_project_list'),
+     path('api/boxes/<str:box_id>/bom/',  box_views.BoxBOMAPIView.as_view(),      name='api_box_bom'),
+     path('api/boxes/<str:box_id>/bom/<int:item_id>/',box_views.BoxBOMItemAPIView.as_view(), name='api_box_bom_item'),
     # ── Material 頁面 ─────────────────────────────────────────
     # ⚠️ 固定路由（add / out / in / adjust）必須在動態路由 <int:item_id> 前面
     path('materials/',                       material_views.material_list,    name='material_list'),
@@ -90,4 +115,17 @@ urlpatterns = [
          transaction_views.TransactionStatsAPIView.as_view(), name='api_transaction_stats'),
     path('api/transactions/transfer/',
          transaction_views.TransferAPIView.as_view(),         name='api_transaction_transfer'),
+
+# ── Borrow API ────────────────────────────────────────────
+    path('api/borrow-requests/',
+         borrow_views.BorrowRequestListCreateAPIView.as_view(), name='api_borrow_list'),
+    path('api/borrow-requests/<int:pk>/approve/',
+         borrow_views.BorrowRequestApproveAPIView.as_view(), name='api_borrow_approve'),
+    path('api/borrow-requests/<int:pk>/return/',
+         borrow_views.BorrowRequestReturnAPIView.as_view(), name='api_borrow_return'),
+
+
+
+
+
 ]

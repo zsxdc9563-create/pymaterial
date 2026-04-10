@@ -122,15 +122,17 @@ class MaterialItems(models.Model):
 
     @property
     def bom_status(self):
-        """
-        BOM 狀態（便於前端/報表用固定值做顏色或篩選）。
-        - 非 BOM：None
-        - missing：quantity == 0
-        - partial：0 < quantity < required_qty
-        - fulfilled：quantity >= required_qty
-        """
         if self.required_qty is None:
             return None
+        # 優先檢查有沒有對應的 DONE 出庫記錄
+        from .models import BOMReleaseLog
+        done = BOMReleaseLog.objects.filter(
+            item=self,
+            release__status='DONE',
+            is_shortage=False,
+        ).exists()
+        if done:
+            return 'fulfilled'
         if self.quantity == 0:
             return 'missing'
         elif self.quantity < self.required_qty:
@@ -404,3 +406,54 @@ class BOMReleaseLog(models.Model):
     def __str__(self):
         item_sn = self.item.sn if self.item else '已刪除'
         return f"出庫單{self.release.pk} | {item_sn} 需求:{self.required_qty} 實際:{self.actual_qty}"
+
+
+ 
+class Role(models.Model):
+    name = models.CharField(max_length=50, unique=True, verbose_name="角色名稱")
+    description = models.CharField(max_length=255, null=True, blank=True, verbose_name="說明")
+
+    class Meta:
+        db_table = 'role'
+        verbose_name = "角色"
+
+    def __str__(self):
+        return self.name
+
+
+class Permission(models.Model):
+    name = models.CharField(max_length=50, unique=True, verbose_name="權限名稱")
+    description = models.CharField(max_length=255, null=True, blank=True, verbose_name="說明")
+
+    class Meta:
+        db_table = 'permission'
+        verbose_name = "權限"
+
+    def __str__(self):
+        return self.name
+
+
+class UserRole(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="使用者")
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, verbose_name="角色")
+
+    class Meta:
+        db_table = 'user_role'
+        verbose_name = "使用者角色"
+        unique_together = [['user', 'role']]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.role.name}"
+
+
+class RolePermission(models.Model):
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, verbose_name="角色")
+    permission = models.ForeignKey(Permission, on_delete=models.CASCADE, verbose_name="權限")
+
+    class Meta:
+        db_table = 'role_permission'
+        verbose_name = "角色權限"
+        unique_together = [['role', 'permission']]
+
+    def __str__(self):
+        return f"{self.role.name} - {self.permission.name}"        

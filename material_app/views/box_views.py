@@ -423,3 +423,71 @@ class BoxShortageAPIView(APIView):
         from ..services.material_service import check_box_shortage
         result = check_box_shortage(box_id)
         return Response(result)
+
+
+class BoxBOMAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, box_id):
+        """取得箱子的 BOM 資料"""
+        box = get_object_or_404(MaterialOverview, box_id=box_id)
+        if box.box_type != 'project':
+            return Response({'error': '此箱子不是專案類型'}, status=status.HTTP_400_BAD_REQUEST)
+        data = get_bom_data(box)
+        from ..serializers import MaterialSerializer
+        return Response({
+            'box_id': box_id,
+            'all_items': MaterialSerializer(data['all_items'], many=True).data,
+            'bom_items': MaterialSerializer(data['bom_items'], many=True).data,
+            'total': data['total'],
+            'fulfilled_count': data['fulfilled_count'],
+            'is_all_ready': data['is_all_ready'],
+        })
+
+    def post(self, request, box_id):
+        """執行 BOM 領料"""
+        if not can_manage_bom(request.user):
+            return Response({'error': '權限不足'}, status=status.HTTP_403_FORBIDDEN)
+        box = get_object_or_404(MaterialOverview, box_id=box_id)
+        try:
+            count = pickup_bom(box, request.user)
+            return Response({'message': f'領料完成！共扣減 {count} 筆物料庫存。'})
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BoxBOMItemAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, box_id, item_id):
+        """更新 BOM 需求數量"""
+        if not can_manage_bom(request.user):
+            return Response({'error': '權限不足'}, status=status.HTTP_403_FORBIDDEN)
+        box = get_object_or_404(MaterialOverview, box_id=box_id)
+        item = get_object_or_404(MaterialItems, id=item_id, box=box)
+        required_qty = request.data.get('required_qty')
+        item.required_qty = int(required_qty) if required_qty else None
+        item.save()
+        return Response({'message': f'料號 {item.sn} 需求數量已更新'})
+
+
+class ProjectListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """取得所有專案箱子列表"""
+        from ..services.box_service import get_bom_summary
+        boxes = MaterialOverview.objects.filter(box_type='project').order_by('-created_at')
+        result = []
+        for box in boxes:
+            summary = get_bom_summary(box)
+            result.append({
+                'box_id': box.box_id,
+                'description': box.description,
+                'owner': box.owner.username if box.owner else None,
+                'is_locked': box.is_locked,
+                'bom_total': summary['total'],
+                'bom_fulfilled': summary['fulfilled'],
+                'bom_pct': summary['pct'],
+            })
+        return Response(result)        
